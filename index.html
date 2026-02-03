@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教員向け授業支援システム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --success: #22c55e;
+            --danger: #ef4444;
+        }
+        body {
+            background-color: #f8fafc;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+        }
+        .seat {
+            transition: all 0.2s;
+            aspect-ratio: 1 / 1;
+        }
+        .seat:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .modal {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app" class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800">🏫 授業支援・評価管理</h1>
+            <nav class="space-x-2">
+                <button onclick="showPage('dashboard')" class="px-4 py-2 bg-white border rounded-lg hover:bg-gray-50">ホーム</button>
+                <button onclick="showPage('settings')" class="px-4 py-2 bg-white border rounded-lg hover:bg-gray-50">評価基準設定</button>
+            </nav>
+        </header>
+
+        <!-- Page: Dashboard -->
+        <section id="page-dashboard" class="page">
+            <h2 class="text-xl font-semibold mb-4">今日の授業予定</h2>
+            <div id="schedule-list" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <!-- Schedule Cards will be injected here -->
+            </div>
+        </section>
+
+        <!-- Page: Evaluation Standard Settings -->
+        <section id="page-settings" class="page hidden">
+            <h2 class="text-xl font-semibold mb-4">教科書評価基準の設定</h2>
+            <div class="bg-white p-6 rounded-xl shadow-sm border">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">教科書・単元名</label>
+                        <input type="text" id="setting-title" class="mt-1 block w-full border rounded-md p-2" placeholder="例：中学数学1 方程式">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">評価基準（観点）</label>
+                        <textarea id="setting-criteria" class="mt-1 block w-full border rounded-md p-2" rows="3" placeholder="例：ある数が方程式の解であるかどうかを判断する方法を考え、説明することができる。"></textarea>
+                    </div>
+                    <button onclick="saveCriteria()" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">保存する</button>
+                </div>
+                <div class="mt-8">
+                    <h3 class="font-medium text-gray-700 mb-2">登録済み一覧</h3>
+                    <ul id="criteria-list" class="divide-y border rounded-lg"></ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Page: Seating Chart (Classroom View) -->
+        <section id="page-classroom" class="page hidden">
+            <div class="mb-4 flex items-center justify-between">
+                <div>
+                    <button onclick="showPage('dashboard')" class="text-indigo-600 hover:underline">← 戻る</button>
+                    <h2 id="current-class-title" class="text-2xl font-bold mt-2"></h2>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg max-w-md">
+                    <p class="text-xs font-bold text-amber-800 uppercase">本日のリマインド（評価基準）</p>
+                    <p id="class-criteria-remind" class="text-sm text-amber-900"></p>
+                </div>
+            </div>
+
+            <div class="bg-gray-200 p-8 rounded-3xl min-h-[500px]">
+                <div class="mb-8 w-full bg-white py-2 text-center font-bold text-gray-400 rounded shadow-inner">黒板 / 教卓</div>
+                <div id="seating-grid" class="grid grid-cols-6 gap-4">
+                    <!-- Seats will be injected here -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal: Evaluation Action -->
+    <div id="eval-modal" class="modal fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white w-full max-w-sm m-4 p-6 rounded-2xl shadow-2xl">
+            <h3 id="modal-student-name" class="text-lg font-bold mb-4">生徒名</h3>
+            <div class="space-y-3">
+                <p class="text-xs text-gray-500 font-bold uppercase">ポジティブな行動</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="submitEval('発言')" class="p-2 border border-green-200 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm">🙋‍♂️ 発言</button>
+                    <button onclick="submitEval('他者に教える')" class="p-2 border border-green-200 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm">🤝 相互指導</button>
+                    <button onclick="submitEval('良い解法')" class="p-2 border border-green-200 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm">💡 良い解法</button>
+                    <button onclick="submitEval('集中')" class="p-2 border border-green-200 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-sm">📖 集中</button>
+                </div>
+                
+                <p class="text-xs text-gray-500 font-bold uppercase mt-4">注意が必要な行動</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="submitEval('騒がしい')" class="p-2 border border-red-200 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-sm">📢 騒がしい</button>
+                    <button onclick="submitEval('授業中断')" class="p-2 border border-red-200 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-sm">⚠️ 中断</button>
+                    <button onclick="submitEval('未提出')" class="p-2 border border-red-200 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-sm">📄 未提出</button>
+                    <button onclick="submitEval('居眠り')" class="p-2 border border-red-200 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-sm">😴 居眠り</button>
+                </div>
+            </div>
+            <button onclick="closeModal()" class="mt-6 w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg transform translate-y-20 transition-transform duration-300">
+        記録しました
+    </div>
+
+    <script>
+        // --- データ管理 ---
+        let state = {
+            criteria: JSON.parse(localStorage.getItem('teacher_criteria')) || [
+                { id: 1, title: '数学1 正負の数', text: '正負の数の意味を理解し、その計算ができる。' },
+                { id: 2, title: '数学1 文字の式', text: '数量の関係を文字を用いた式で表すことができる。' },
+                { id: 3, title: '数学1 方程式', text: 'ある数が方程式の解であるかどうかを判断する方法を考え、説明することができる。' }
+            ],
+            schedule: [
+                { id: 101, time: '1校時', className: '1年1組', subject: '数学', criteriaId: 1 },
+                { id: 102, time: '2校時', className: '1年2組', subject: '数学', criteriaId: 3 },
+                { id: 103, time: '4校時', className: '1年3組', subject: '数学', criteriaId: 3 }
+            ],
+            students: Array.from({ length: 30 }, (_, i) => ({ id: i + 1, name: `生徒 ${String.fromCharCode(65 + i % 26)}${Math.floor(i/26) || ''}` })),
+            evalLog: JSON.parse(localStorage.getItem('teacher_eval_log')) || [],
+            currentSession: null,
+            currentStudent: null
+        };
+
+        // --- 画面遷移 ---
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`page-${pageId}`).classList.remove('hidden');
+            if(pageId === 'dashboard') renderDashboard();
+            if(pageId === 'settings') renderSettings();
+        }
+
+        // --- ダッシュボード描画 ---
+        function renderDashboard() {
+            const list = document.getElementById('schedule-list');
+            list.innerHTML = '';
+            state.schedule.forEach(item => {
+                const criteria = state.criteria.find(c => c.id === item.criteriaId);
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-indigo-300 cursor-pointer transition-all";
+                card.onclick = () => openClass(item);
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">${item.time}</span>
+                        <span class="text-sm font-medium text-gray-500">${item.className}</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">${item.subject}</h3>
+                    <div class="text-xs text-gray-600 line-clamp-2 bg-gray-50 p-2 rounded">
+                        <strong>目標:</strong> ${criteria ? criteria.text : '設定なし'}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        // --- 評価基準設定描画 ---
+        function renderSettings() {
+            const list = document.getElementById('criteria-list');
+            list.innerHTML = '';
+            state.criteria.forEach(c => {
+                const li = document.createElement('li');
+                li.className = "p-3 flex justify-between items-center bg-gray-50 mb-1 rounded";
+                li.innerHTML = `
+                    <div>
+                        <div class="font-bold text-sm text-gray-800">${c.title}</div>
+                        <div class="text-xs text-gray-600">${c.text}</div>
+                    </div>
+                    <button onclick="deleteCriteria(${c.id})" class="text-red-500 text-xs">削除</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function saveCriteria() {
+            const title = document.getElementById('setting-title').value;
+            const text = document.getElementById('setting-criteria').value;
+            if(!title || !text) return alert("入力してください");
+            
+            state.criteria.push({ id: Date.now(), title, text });
+            localStorage.setItem('teacher_criteria', JSON.stringify(state.criteria));
+            
+            document.getElementById('setting-title').value = '';
+            document.getElementById('setting-criteria').value = '';
+            renderSettings();
+            showToast("評価基準を保存しました");
+        }
+
+        function deleteCriteria(id) {
+            state.criteria = state.criteria.filter(c => c.id !== id);
+            localStorage.setItem('teacher_criteria', JSON.stringify(state.criteria));
+            renderSettings();
+        }
+
+        // --- 座席表画面 ---
+        function openClass(session) {
+            state.currentSession = session;
+            const criteria = state.criteria.find(c => c.id === session.criteriaId);
+            
+            document.getElementById('current-class-title').innerText = `${session.className} - ${session.subject}`;
+            document.getElementById('class-criteria-remind').innerText = criteria ? criteria.text : '評価基準未設定';
+            
+            renderSeats();
+            showPage('classroom');
+        }
+
+        function renderSeats() {
+            const grid = document.getElementById('seating-grid');
+            grid.innerHTML = '';
+            state.students.forEach(student => {
+                const seat = document.createElement('div');
+                // 直近の評価があるか確認
+                const lastEval = state.evalLog.filter(l => l.studentId === student.id).pop();
+                let bgColor = "bg-white";
+                if(lastEval) {
+                    const positive = ['発言', '他者に教える', '良い解法', '集中'];
+                    bgColor = positive.includes(lastEval.action) ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200";
+                }
+
+                seat.className = `seat ${bgColor} border rounded-lg p-2 flex flex-col items-center justify-center cursor-pointer text-center`;
+                seat.onclick = () => openEvalModal(student);
+                seat.innerHTML = `
+                    <span class="text-xs text-gray-400 font-mono">席:${student.id}</span>
+                    <span class="text-sm font-bold text-gray-700">${student.name}</span>
+                `;
+                grid.appendChild(seat);
+            });
+        }
+
+        // --- 評価モーダル ---
+        function openEvalModal(student) {
+            state.currentStudent = student;
+            document.getElementById('modal-student-name').innerText = student.name + " の評価";
+            document.getElementById('eval-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('eval-modal').classList.add('hidden');
+        }
+
+        function submitEval(action) {
+            const logEntry = {
+                timestamp: new Date().toISOString(),
+                studentId: state.currentStudent.id,
+                studentName: state.currentStudent.name,
+                classId: state.currentSession.id,
+                className: state.currentSession.className,
+                action: action
+            };
+
+            state.evalLog.push(logEntry);
+            localStorage.setItem('teacher_eval_log', JSON.stringify(state.evalLog));
+            
+            closeModal();
+            renderSeats();
+            showToast(`${state.currentStudent.name}: 「${action}」を記録しました`);
+        }
+
+        // --- ユーティリティ ---
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('translate-y-20');
+            setTimeout(() => toast.classList.add('translate-y-20'), 2000);
+        }
+
+        // 初期ロード
+        window.onload = () => {
+            renderDashboard();
+        };
+    </script>
+</body>
+</html>
