@@ -7,182 +7,249 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --primary: #4f46e5; }
-        body { background-color: #f1f5f9; font-family: sans-serif; overflow-x: hidden; }
+        body { background-color: #f8fafc; font-family: sans-serif; overflow-x: hidden; color: #1e293b; }
         .page { display: none; }
         .page.active { display: block; }
         .seat { aspect-ratio: 1 / 1; transition: all 0.2s; position: relative; }
-        /* 評価されても色はつかない（枠線だけわずかに変化させる程度、または変化なし） */
-        .seat.selected { border: 2px solid #6366f1; background-color: #f8fafc; }
+        .preview-seat { aspect-ratio: 1 / 1; border: 1px solid #e2e8f0; border-radius: 2px; }
         .log-enter { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
         .loading-dots:after { content: '...'; animation: dots 1.5s infinite; }
         @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } }
+        .scroll-hide::-webkit-scrollbar { display: none; }
+        .gradient-bg { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
     </style>
 </head>
-<body class="pb-24">
+<body class="pb-28">
 
     <div id="app" class="max-w-4xl mx-auto p-4">
-        <!-- Bottom Nav -->
-        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 z-50 shadow-lg">
-            <button onclick="showPage('dashboard')" class="flex flex-col items-center text-gray-500 hover:text-indigo-600">
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t flex justify-around p-3 z-50 shadow-2xl">
+            <button onclick="showPage('dashboard')" class="flex flex-col items-center text-gray-400 hover:text-indigo-600 focus:text-indigo-600">
                 <span class="text-xl">🏠</span><span class="text-[10px] font-bold">ホーム</span>
             </button>
-            <button onclick="showPage('schedule')" class="flex flex-col items-center text-gray-500 hover:text-indigo-600">
+            <button onclick="showPage('schedule')" class="flex flex-col items-center text-gray-400 hover:text-indigo-600 focus:text-indigo-600">
                 <span class="text-xl">📅</span><span class="text-[10px] font-bold">予定・基準</span>
             </button>
-            <button onclick="showPage('class-config')" class="flex flex-col items-center text-gray-500 hover:text-indigo-600">
-                <span class="text-xl">👥</span><span class="text-[10px] font-bold">座席・名簿</span>
+            <button onclick="showPage('class-config')" class="flex flex-col items-center text-gray-400 hover:text-indigo-600 focus:text-indigo-600">
+                <span class="text-xl">👥</span><span class="text-[10px] font-bold">座席設定</span>
             </button>
-            <button onclick="showPage('settings')" class="flex flex-col items-center text-gray-500 hover:text-indigo-600">
+            <button onclick="showPage('settings')" class="flex flex-col items-center text-gray-400 hover:text-indigo-600 focus:text-indigo-600">
                 <span class="text-xl">⚙️</span><span class="text-[10px] font-bold">設定</span>
             </button>
         </nav>
 
-        <!-- Page: Dashboard -->
+        <!-- Page: Dashboard (Home) -->
         <section id="page-dashboard" class="page active">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-2xl font-bold text-gray-800">今日の授業予定</h1>
-                <p id="current-time-display" class="text-xs font-medium text-indigo-600 bg-white px-3 py-1 rounded-full shadow-sm border border-indigo-100"></p>
+            <header class="flex justify-between items-end mb-8 pt-4">
+                <div>
+                    <p id="dashboard-date" class="text-sm font-bold text-indigo-600 mb-1"></p>
+                    <h1 class="text-3xl font-black tracking-tight">授業ダッシュボード</h1>
+                </div>
+                <div class="text-right">
+                    <p id="current-time-display" class="text-2xl font-mono font-bold text-gray-400"></p>
+                </div>
+            </header>
+
+            <div class="space-y-8">
+                <!-- Today's Classes -->
+                <div>
+                    <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> 本日の授業
+                    </h2>
+                    <div id="today-list" class="space-y-3"></div>
+                </div>
+
+                <!-- Upcoming/History Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">📅 明日以降の予定</h2>
+                        <div id="upcoming-list" class="space-y-2"></div>
+                    </div>
+                    <div>
+                        <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">🕒 履歴・続きから評価</h2>
+                        <div id="history-list" class="space-y-2"></div>
+                    </div>
+                </div>
             </div>
-            <div id="dashboard-list" class="space-y-4"></div>
         </section>
 
-        <!-- Page: Schedule & Criteria -->
+        <!-- Page: Schedule & AI Criteria -->
         <section id="page-schedule" class="page">
-            <h1 class="text-xl font-bold mb-4">授業予定と評価基準</h1>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h1 class="text-2xl font-black mb-6">授業登録・編集</h1>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-6">
                 <input type="hidden" id="edit-id">
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="date" id="input-date" class="border p-2 rounded-lg text-sm">
-                    <select id="input-period" class="border p-2 rounded-lg text-sm"></select>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase">実施日</label>
+                        <input type="date" id="input-date" class="w-full border-2 border-gray-50 bg-gray-50 p-3 rounded-xl text-sm focus:bg-white focus:border-indigo-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase">時限</label>
+                        <select id="input-period" class="w-full border-2 border-gray-50 bg-gray-50 p-3 rounded-xl text-sm focus:bg-white focus:border-indigo-500 outline-none transition-all"></select>
+                    </div>
                 </div>
-                <input type="text" id="input-class" placeholder="1年A組 数学" class="w-full border p-2 rounded-lg text-sm">
-                <textarea id="input-criteria" rows="3" class="w-full border p-2 rounded-lg text-sm" placeholder="教科書の評価基準を入力..."></textarea>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase">クラス・科目名</label>
+                    <input type="text" id="input-class" placeholder="1年A組 数学" class="w-full border-2 border-gray-50 bg-gray-50 p-3 rounded-xl text-sm focus:bg-white focus:border-indigo-500 outline-none transition-all">
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 mb-1 uppercase">評価基準の原文 (教科書等)</label>
+                    <textarea id="input-criteria" rows="3" class="w-full border-2 border-gray-50 bg-gray-50 p-3 rounded-xl text-sm focus:bg-white focus:border-indigo-500 outline-none transition-all" placeholder="例：三角形の合同条件を理解し、図形の性質を論理的に考察できる。"></textarea>
+                </div>
 
-                <div id="ai-section" class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-bold text-indigo-700">🔍 AI観察ポイント</span>
-                        <button onclick="generateAIPoints()" class="bg-indigo-600 text-white text-[10px] px-3 py-1 rounded-full hover:bg-indigo-700">AI作成</button>
+                <!-- AI Section -->
+                <div class="bg-indigo-50/50 p-5 rounded-3xl border-2 border-indigo-100/50 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">✨</span>
+                            <span class="text-xs font-black text-indigo-700">AI観察ポイント作成</span>
+                        </div>
+                        <button onclick="handleAIGenerate()" id="ai-gen-btn" class="bg-indigo-600 text-white text-[10px] font-black px-5 py-2 rounded-full hover:bg-indigo-700 transition active:scale-95 shadow-lg shadow-indigo-200">AIに作成させる</button>
                     </div>
-                    <div id="ai-result-area" class="text-sm text-indigo-900 space-y-1">
-                        <p class="text-gray-400 italic text-xs">基準を入力してAI作成を押してください</p>
+                    
+                    <div id="ai-result-display" class="bg-white p-4 rounded-2xl min-h-[80px] border border-indigo-100 shadow-inner">
+                        <p id="ai-placeholder" class="text-gray-400 text-[11px] leading-relaxed">基準を入力してボタンを押すと、観察すべき行動の目安を3つ作成します。</p>
+                        <ul id="ai-points-list" class="text-xs text-indigo-900 font-bold space-y-2"></ul>
                     </div>
-                    <div id="keyword-area" class="mt-3 pt-3 border-t border-indigo-200 hidden">
-                        <div id="keyword-chips" class="flex flex-wrap gap-2 mb-2"></div>
+
+                    <div id="ai-keyword-box" class="hidden animate-fade-in">
+                        <div id="keyword-chips" class="flex flex-wrap gap-2 mb-3"></div>
                         <div class="flex gap-2">
-                            <input type="text" id="custom-keyword" placeholder="自由入力..." class="flex-1 text-xs border p-1 rounded">
-                            <button onclick="generateAIPoints(true)" class="bg-white border border-indigo-300 text-indigo-600 text-[10px] px-2 py-1 rounded">再作成</button>
+                            <input type="text" id="custom-keyword" placeholder="自由ワードで修正..." class="flex-1 text-[11px] border-none bg-white p-2.5 rounded-xl shadow-sm">
+                            <button onclick="handleAIGenerate(true)" class="bg-white text-indigo-600 border-2 border-indigo-100 text-[10px] font-black px-4 py-2 rounded-xl">再生成</button>
                         </div>
                     </div>
                 </div>
-                <button onclick="saveSchedule()" id="save-btn" class="w-full bg-gray-800 text-white py-3 rounded-xl font-bold">登録する</button>
+
+                <div class="flex gap-3">
+                    <button onclick="saveSchedule()" id="save-btn" class="flex-1 gradient-bg text-white py-4 rounded-2xl font-black shadow-xl shadow-indigo-200 active:scale-[0.98] transition">授業を登録する</button>
+                    <button onclick="resetForm()" id="cancel-btn" class="bg-gray-100 text-gray-500 px-6 py-4 rounded-2xl font-bold text-sm hidden">中止</button>
+                </div>
             </div>
-            <div id="all-schedule-list" class="mt-6 space-y-2"></div>
+            <div id="all-schedule-list" class="mt-12 space-y-3 pb-10"></div>
         </section>
 
-        <!-- Page: Class Config (Seat Settings) -->
+        <!-- Page: Class Config (Visual Seating) -->
         <section id="page-class-config" class="page">
-            <h1 class="text-xl font-bold mb-4">クラス名簿・座席設定</h1>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 mb-1">生徒名簿（改行区切りで入力）</label>
-                    <textarea id="student-list-input" rows="8" class="w-full border p-2 rounded-lg text-sm font-mono" placeholder="生徒A&#10;生徒B&#10;生徒C..."></textarea>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
+            <h1 class="text-2xl font-black mb-2">座席・名簿の設定</h1>
+            <p class="text-xs text-gray-400 mb-6 font-bold uppercase tracking-tighter">左前から右に向かって順に配置されます</p>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border space-y-6">
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">横の列数</label>
-                        <input type="number" id="grid-cols" value="6" class="w-full border p-2 rounded-lg text-sm">
+                        <label class="block text-xs font-black text-gray-400 mb-2 uppercase">生徒名簿（1行に1人）</label>
+                        <textarea id="student-list-input" oninput="updatePreview()" rows="12" class="w-full bg-gray-50 border-2 border-gray-50 p-4 rounded-2xl text-sm font-mono focus:bg-white focus:border-indigo-500 outline-none transition-all" placeholder="田中 太郎&#10;佐藤 花子..."></textarea>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">空席を含める総席数</label>
-                        <input type="number" id="total-seats" value="36" class="w-full border p-2 rounded-lg text-sm">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-black text-gray-400 mb-2 uppercase">横の列数</label>
+                            <input type="number" id="grid-cols" value="6" oninput="updatePreview()" class="w-full bg-gray-50 border-none p-3 rounded-xl text-sm font-black text-center">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black text-gray-400 mb-2 uppercase">総席数</label>
+                            <input type="number" id="total-seats" value="36" oninput="updatePreview()" class="w-full bg-gray-50 border-none p-3 rounded-xl text-sm font-black text-center">
+                        </div>
+                    </div>
+                    <button onclick="saveClassConfig()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black shadow-xl shadow-gray-200 active:scale-[0.98] transition">この設定で保存</button>
+                </div>
+
+                <!-- Realtime Preview -->
+                <div class="bg-gray-100 p-6 rounded-3xl border border-gray-200 sticky top-4">
+                    <h3 class="text-[10px] font-black text-gray-400 mb-4 uppercase text-center tracking-widest">配置プレビュー</h3>
+                    <div class="w-16 h-1 mx-auto bg-gray-300 rounded-full mb-6"></div>
+                    <div id="seating-preview" class="grid gap-1.5"></div>
+                    <div class="mt-6 flex items-center justify-center gap-4">
+                        <div class="flex items-center gap-1 text-[9px] font-bold text-gray-400">
+                            <span class="w-2 h-2 bg-indigo-500 rounded-sm"></span> 入力済
+                        </div>
+                        <div class="flex items-center gap-1 text-[9px] font-bold text-gray-400">
+                            <span class="w-2 h-2 bg-white border border-gray-300 rounded-sm"></span> 空席
+                        </div>
                     </div>
                 </div>
-                <button onclick="saveClassConfig()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">座席設定を反映</button>
             </div>
-            <p class="text-[10px] text-gray-400 mt-4 text-center">※座席配置の微調整は今後のアップデートでドラッグ操作に対応予定です。</p>
         </section>
 
-        <!-- Page: Seating Chart (Live) -->
+        <!-- Page: Classroom (Live Eval) -->
         <section id="page-classroom" class="page">
-            <div class="flex items-center gap-3 mb-4">
-                <button onclick="showPage('dashboard')" class="bg-white p-2 rounded-lg border text-sm shadow-sm">←</button>
-                <div>
-                    <h2 id="view-class-title" class="text-lg font-bold"></h2>
-                    <p id="view-class-info" class="text-[10px] text-gray-500"></p>
-                </div>
-            </div>
-
-            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4">
-                <div id="view-ai-points" class="text-xs font-bold text-amber-900 grid gap-1"></div>
-            </div>
-
-            <div class="flex flex-col md:flex-row gap-6">
-                <!-- Seating Grid -->
-                <div class="flex-1 bg-gray-200 p-4 rounded-3xl border shadow-inner">
-                    <div class="w-24 mx-auto bg-white/50 py-1 text-[10px] text-center font-bold text-gray-400 rounded mb-6 border border-dashed border-gray-400">黒板 / 教卓</div>
-                    <div id="seating-grid" class="grid gap-2"></div>
-                </div>
-
-                <!-- Real-time Record List -->
-                <div class="w-full md:w-64 bg-white p-4 rounded-2xl border shadow-sm self-start">
-                    <h3 class="text-xs font-bold text-gray-400 mb-3 border-b pb-2 uppercase tracking-wider">この時間の評価記録</h3>
-                    <div id="live-log-list" class="space-y-2 max-h-[400px] overflow-y-auto scroll-hide">
-                        <!-- Logs will appear here -->
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-4">
+                    <button onclick="showPage('dashboard')" class="bg-white w-10 h-10 rounded-full border shadow-sm flex items-center justify-center font-bold text-gray-400 hover:text-indigo-600 transition">←</button>
+                    <div>
+                        <h2 id="view-class-title" class="text-xl font-black"></h2>
+                        <p id="view-class-info" class="text-[10px] font-bold text-indigo-500 uppercase"></p>
                     </div>
-                    <div id="empty-log-msg" class="text-[10px] text-gray-300 text-center py-4 italic">まだ記録がありません</div>
+                </div>
+            </div>
+
+            <div class="bg-amber-100/50 border border-amber-200 p-4 rounded-3xl mb-6">
+                <p class="text-[9px] font-black text-amber-600 uppercase mb-2">AI観察ポイント</p>
+                <div id="view-ai-points" class="text-xs font-bold text-amber-900 grid gap-1.5"></div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- Seating Grid -->
+                <div class="flex-1 bg-gray-200 p-5 rounded-[40px] border-8 border-gray-100 shadow-inner">
+                    <div class="w-32 mx-auto bg-white/40 py-1.5 text-[10px] text-center font-black text-gray-400 rounded-full mb-8 border border-white/50 uppercase tracking-widest">Blackboard</div>
+                    <div id="seating-grid" class="grid gap-3"></div>
+                </div>
+
+                <!-- Live Log Sidebar -->
+                <div class="w-full lg:w-72 flex flex-col gap-4">
+                    <div class="bg-white p-5 rounded-3xl border shadow-sm flex flex-col h-[500px]">
+                        <h3 class="text-xs font-black text-gray-400 mb-4 border-b pb-3 uppercase tracking-widest">本日の評価ログ</h3>
+                        <div id="live-log-list" class="flex-1 overflow-y-auto space-y-3 pr-1 scroll-hide"></div>
+                        <div id="empty-log-msg" class="text-[10px] text-gray-300 text-center py-10 italic">記録はまだありません</div>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- Page: Settings -->
         <section id="page-settings" class="page">
-            <h1 class="text-xl font-bold mb-4">校時・時間設定</h1>
-            <div id="time-config-list" class="bg-white p-4 rounded-2xl border shadow-sm space-y-4"></div>
+            <h1 class="text-2xl font-black mb-6">設定</h1>
+            <div class="bg-white p-6 rounded-3xl border space-y-6">
+                <div>
+                    <h3 class="text-xs font-black text-gray-400 uppercase mb-4">授業時間割の設定</h3>
+                    <div id="time-config-list" class="space-y-3"></div>
+                </div>
+            </div>
         </section>
     </div>
 
-    <!-- Modal: Evaluation -->
-    <div id="eval-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center hidden">
-        <div class="bg-white w-full max-w-xs p-6 rounded-3xl shadow-2xl m-4">
-            <h3 id="modal-student-name" class="text-lg font-bold mb-4">生徒名</h3>
-            <div class="space-y-4">
-                <div>
-                    <p class="text-[10px] font-bold text-gray-400 mb-2">ポジティブ</p>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="recordEval('挙手・発言')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">🙋 発言</button>
-                        <button onclick="recordEval('他者へ教える')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">🤝 相互指導</button>
-                        <button onclick="recordEval('良い解法')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">💡 良い解法</button>
-                        <button onclick="recordEval('集中')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">📖 集中</button>
-                    </div>
-                </div>
-                <div>
-                    <p class="text-[10px] font-bold text-gray-400 mb-2">フォロー</p>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="recordEval('騒がしい')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">📢 騒がしい</button>
-                        <button onclick="recordEval('中断行為')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">⚠️ 中断</button>
-                        <button onclick="recordEval('居眠り')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">😴 居眠り</button>
-                        <button onclick="recordEval('忘れ物')" class="bg-gray-50 text-gray-700 p-2 rounded-xl text-xs border border-gray-200 active:bg-indigo-100 transition">🎒 忘れ物</button>
-                    </div>
-                </div>
+    <!-- Evaluation Modal -->
+    <div id="eval-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center hidden">
+        <div class="bg-white w-full max-w-sm p-8 rounded-[40px] shadow-2xl m-4 border border-white/20">
+            <div class="text-center mb-6">
+                <p class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Evaluating</p>
+                <h3 id="modal-student-name" class="text-3xl font-black">生徒名</h3>
             </div>
-            <button onclick="closeModal()" class="w-full mt-6 py-2 text-gray-400 text-sm border-t">閉じる</button>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="recordEval('挙手・発言')" class="bg-gray-50 p-4 rounded-2xl text-[11px] font-black border-2 border-transparent hover:border-indigo-500 hover:bg-white transition-all">🙋 発言</button>
+                <button onclick="recordEval('他者へ助言')" class="bg-gray-50 p-4 rounded-2xl text-[11px] font-black border-2 border-transparent hover:border-indigo-500 hover:bg-white transition-all">🤝 助言</button>
+                <button onclick="recordEval('鋭い考察')" class="bg-gray-50 p-4 rounded-2xl text-[11px] font-black border-2 border-transparent hover:border-indigo-500 hover:bg-white transition-all">💡 考察</button>
+                <button onclick="recordEval('継続的集中')" class="bg-gray-50 p-4 rounded-2xl text-[11px] font-black border-2 border-transparent hover:border-indigo-500 hover:bg-white transition-all">📖 集中</button>
+                <button onclick="recordEval('不適切発言')" class="bg-rose-50 p-4 rounded-2xl text-[11px] font-black border-2 border-transparent hover:border-rose-500 hover:bg-white transition-all text-rose-600">📢 騒がしい</button>
+                <button onclick="recordEval('中断行為')" class="bg-rose-50 p-4 rounded-2xl text-[11px] font-black border-2 border-transparent hover:border-rose-500 hover:bg-white transition-all text-rose-600">⚠️ 中断</button>
+            </div>
+            <button onclick="closeModal()" class="w-full mt-8 py-2 text-gray-300 font-bold text-xs uppercase tracking-widest hover:text-gray-500 transition">Close</button>
         </div>
     </div>
 
-    <!-- Toast -->
-    <div id="toast" class="fixed top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-2 rounded-full shadow-lg text-xs opacity-0 transition-opacity z-[200]"></div>
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-10 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur text-white px-8 py-4 rounded-full shadow-2xl text-xs font-black opacity-0 transition-all z-[200] pointer-events-none uppercase tracking-widest"></div>
 
     <script>
-        const apiKey = ""; 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'teacher-private-v3';
+        const apiKey = "";
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'edu-manager-v5-final';
 
-        // --- Data State ---
         let state = {
             schedules: JSON.parse(localStorage.getItem(`${appId}_schedules`)) || [],
             logs: JSON.parse(localStorage.getItem(`${appId}_logs`)) || [],
             classConfig: JSON.parse(localStorage.getItem(`${appId}_classConfig`)) || {
-                students: ["生徒1", "生徒2", "生徒3", "生徒4", "生徒5", "生徒6"],
+                students: ["生徒A", "生徒B", "生徒C", "生徒D"],
                 cols: 6,
                 total: 36
             },
@@ -195,121 +262,165 @@
                 { id: 6, label: "6校時", start: "14:30", end: "15:20" }
             ],
             currentAiPoints: [],
-            currentKeywords: [],
             selectedStudent: null,
             selectedClassId: null
         };
 
-        // --- Navigation ---
+        // --- Core Navigation ---
         function showPage(pageId) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(`page-${pageId}`).classList.add('active');
             if (pageId === 'dashboard') renderDashboard();
             if (pageId === 'schedule') renderScheduleList();
+            if (pageId === 'class-config') {
+                renderClassConfig();
+                updatePreview();
+            }
             if (pageId === 'settings') renderSettings();
-            if (pageId === 'class-config') renderClassConfig();
+            window.scrollTo(0, 0);
         }
 
-        // --- AI Extraction ---
-        async function generateAIPoints(isRegen = false) {
-            const criteria = document.getElementById('input-criteria').value;
-            if (!criteria) return showToast("評価基準を入力してください");
+        // --- Dashboard Management ---
+        function renderDashboard() {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
             
-            const area = document.getElementById('ai-result-area');
-            area.innerHTML = '<p class="loading-dots text-indigo-400 text-xs">AIが行動目安を考案中</p>';
+            document.getElementById('dashboard-date').innerText = now.toLocaleDateString('ja-JP', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('current-time-display').innerText = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
-            let prompt = `以下の教科書的な評価基準から、机間指導で観察すべき具体的な行動目安を3つ考えてください。
-            ・「・〜している」の形式。1つ20文字以内。
-            ・解説は不要、結果の3行のみ。
-            評価基準: ${criteria}`;
+            const todayList = document.getElementById('today-list');
+            const upcomingList = document.getElementById('upcoming-list');
+            const historyList = document.getElementById('history-list');
+
+            todayList.innerHTML = upcomingList.innerHTML = historyList.innerHTML = '';
+
+            const items = [...state.schedules].sort((a, b) => new Date(`${a.date} ${state.timeConfig.find(p => p.id == a.periodId)?.start}`) - new Date(`${b.date} ${state.timeConfig.find(p => p.id == b.periodId)?.start}`));
+
+            const todayItems = items.filter(s => s.date === todayStr);
+            const futureItems = items.filter(s => s.date > todayStr).slice(0, 5);
+            const pastItems = items.filter(s => s.date <= todayStr).reverse().slice(0, 5);
+
+            // Today's Display
+            if (todayItems.length === 0) {
+                todayList.innerHTML = '<div class="bg-white p-12 rounded-[40px] border border-dashed text-center text-gray-300 font-bold text-sm">今日の授業は登録されていません</div>';
+            } else {
+                todayItems.forEach(s => todayList.appendChild(createClassCard(s, true)));
+            }
+
+            // Future Display
+            if (futureItems.length === 0) {
+                upcomingList.innerHTML = '<p class="text-[10px] text-gray-300 font-bold italic">予定なし</p>';
+            } else {
+                futureItems.forEach(s => upcomingList.appendChild(createClassCard(s, false, 'future')));
+            }
+
+            // History Display
+            if (pastItems.length === 0) {
+                historyList.innerHTML = '<p class="text-[10px] text-gray-300 font-bold italic">履歴なし</p>';
+            } else {
+                pastItems.forEach(s => historyList.appendChild(createClassCard(s, false, 'history')));
+            }
+        }
+
+        function createClassCard(s, isLarge = false, type = 'today') {
+            const conf = state.timeConfig.find(p => p.id == s.periodId);
+            const el = document.createElement('div');
+            
+            if (isLarge) {
+                el.className = "bg-white p-6 rounded-[32px] border-2 border-transparent hover:border-indigo-500 shadow-sm transition-all cursor-pointer group";
+                el.onclick = () => openClassroom(s);
+                el.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] font-black bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full uppercase mb-2 inline-block">${conf?.label}</span>
+                            <h3 class="text-xl font-black group-hover:text-indigo-600 transition-colors">${s.className}</h3>
+                            <p class="text-[10px] font-bold text-gray-400 mt-1">${conf?.start} — ${conf?.end}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all font-black text-sm">評価をはじめる →</div>
+                    </div>
+                `;
+            } else {
+                el.className = "bg-white p-3 rounded-2xl border border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors";
+                el.onclick = () => openClassroom(s);
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="text-[9px] font-black text-gray-400 w-12">${type === 'future' ? s.date.slice(5) : conf?.label}</div>
+                        <div class="text-xs font-bold text-gray-700">${s.className}</div>
+                    </div>
+                    <span class="text-[10px] font-black text-indigo-500">OPEN</span>
+                `;
+            }
+            return el;
+        }
+
+        // --- AI Extraction Logic ---
+        async function handleAIGenerate(isRegen = false) {
+            const crit = document.getElementById('input-criteria').value;
+            if (!crit) return showToast("先に基準を入力してください");
+
+            const btn = document.getElementById('ai-gen-btn');
+            const placeholder = document.getElementById('ai-placeholder');
+            const list = document.getElementById('ai-points-list');
+            
+            btn.disabled = true; btn.innerText = "生成中...";
+            placeholder.innerHTML = '<span class="loading-dots">AIが授業をイメージしています</span>';
+            list.innerHTML = "";
+
+            let prompt = `以下の評価基準をもとに、授業中に教師が机間巡視で観察すべき「生徒の具体的行動」を3点、20文字以内で抽出してください。語尾は「・〜している」で統一。
+            基準: ${crit}`;
 
             if (isRegen) {
                 const custom = document.getElementById('custom-keyword').value;
-                const chips = Array.from(document.querySelectorAll('.keyword-chip.active')).map(c => c.innerText);
-                prompt += `\n特に「${chips.join(', ')} ${custom}」に関連する行動を重視してください。`;
+                prompt += `\n追加の重視事項: ${custom}`;
             }
 
             try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
-                const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "・観察ポイントなし";
-                state.currentAiPoints = text.split('\n').filter(l => l.includes('・')).slice(0, 3);
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                state.currentAiPoints = text.split('\n').filter(l => l.includes('・')).map(l => l.trim()).slice(0, 3);
                 
-                area.innerHTML = state.currentAiPoints.map(p => `<div class="font-bold">✅ ${p}</div>`).join('');
-                document.getElementById('keyword-area').classList.remove('hidden');
-                extractKeywords(criteria);
+                placeholder.classList.add('hidden');
+                list.innerHTML = state.currentAiPoints.map(p => `<li>${p}</li>`).join('');
+                document.getElementById('ai-keyword-box').classList.remove('hidden');
             } catch (e) {
-                area.innerHTML = '<p class="text-red-400">通信エラー</p>';
+                placeholder.innerText = "エラーが発生しました。再試行してください。";
+            } finally {
+                btn.disabled = false; btn.innerText = isRegen ? "再生成" : "AIに作成させる";
             }
         }
 
-        async function extractKeywords(text) {
-            const prompt = `以下の文から教育・授業のキーワードを4つ、カンマ区切りで短く抽出して: ${text}`;
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
-                const data = await res.json();
-                const kw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                state.currentKeywords = kw.split(/[,、]/).map(k => k.trim()).filter(k => k);
-                
-                const chips = document.getElementById('keyword-chips');
-                chips.innerHTML = state.currentKeywords.map(k => `
-                    <button onclick="this.classList.toggle('active'); this.classList.toggle('bg-indigo-600'); this.classList.toggle('text-white');" 
-                            class="keyword-chip border border-indigo-200 px-2 py-1 rounded-full text-[10px] text-indigo-500 transition-colors">${k}</button>
-                `).join('');
-            } catch (e) {}
-        }
+        // --- Seating Visualizer ---
+        function updatePreview() {
+            const raw = document.getElementById('student-list-input').value;
+            const students = raw.split('\n').map(s => s.trim()).filter(s => s);
+            const cols = parseInt(document.getElementById('grid-cols').value) || 6;
+            const total = parseInt(document.getElementById('total-seats').value) || 36;
+            
+            const preview = document.getElementById('seating-preview');
+            preview.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            preview.innerHTML = '';
 
-        // --- Schedule & Config Management ---
-        function saveSchedule() {
-            const entry = {
-                id: document.getElementById('edit-id').value || Date.now(),
-                date: document.getElementById('input-date').value,
-                periodId: document.getElementById('input-period').value,
-                className: document.getElementById('input-class').value,
-                criteria: document.getElementById('input-criteria').value,
-                aiPoints: state.currentAiPoints
-            };
-            if (!entry.date || !entry.className) return showToast("日付とクラスを入力してください");
-
-            const index = state.schedules.findIndex(s => s.id == entry.id);
-            if (index > -1) state.schedules[index] = entry;
-            else state.schedules.push(entry);
-
-            localStorage.setItem(`${appId}_schedules`, JSON.stringify(state.schedules));
-            resetForm();
-            showPage('dashboard');
-            showToast("保存しました");
-        }
-
-        function resetForm() {
-            document.getElementById('edit-id').value = '';
-            document.getElementById('input-class').value = '';
-            document.getElementById('input-criteria').value = '';
-            document.getElementById('ai-result-area').innerHTML = '<p class="text-gray-400 italic text-xs">基準を入力してAI作成を押してください</p>';
-            document.getElementById('save-btn').innerText = "登録する";
-            state.currentAiPoints = [];
+            for (let i = 0; i < total; i++) {
+                const dot = document.createElement('div');
+                dot.className = `preview-seat ${students[i] ? 'bg-indigo-500 border-indigo-600 shadow-sm' : 'bg-white border-gray-200'}`;
+                preview.appendChild(dot);
+            }
         }
 
         function saveClassConfig() {
             const raw = document.getElementById('student-list-input').value;
-            const cols = parseInt(document.getElementById('grid-cols').value) || 6;
-            const total = parseInt(document.getElementById('total-seats').value) || 36;
-            
             state.classConfig = {
                 students: raw.split('\n').map(s => s.trim()).filter(s => s),
-                cols: cols,
-                total: total
+                cols: parseInt(document.getElementById('grid-cols').value) || 6,
+                total: parseInt(document.getElementById('total-seats').value) || 36
             };
             localStorage.setItem(`${appId}_classConfig`, JSON.stringify(state.classConfig));
-            showToast("座席・名簿を保存しました");
+            showToast("座席・名簿設定を保存しました");
         }
 
         function renderClassConfig() {
@@ -318,50 +429,50 @@
             document.getElementById('total-seats').value = state.classConfig.total;
         }
 
-        // --- Dashboard & Live View ---
-        function renderDashboard() {
-            const list = document.getElementById('dashboard-list');
-            list.innerHTML = '';
-            const today = new Date().toISOString().split('T')[0];
-            const filtered = state.schedules.filter(s => s.date === today).sort((a,b) => a.periodId - b.periodId);
+        // --- Schedule & Evaluation Persistence ---
+        function saveSchedule() {
+            const id = document.getElementById('edit-id').value || Date.now().toString();
+            const date = document.getElementById('input-date').value;
+            const period = document.getElementById('input-period').value;
+            const cls = document.getElementById('input-class').value;
+            const crit = document.getElementById('input-criteria').value;
 
-            if (filtered.length === 0) {
-                list.innerHTML = '<div class="bg-white p-10 rounded-2xl border text-center text-gray-400 text-sm">今日の予定はありません</div>';
-            }
+            if (!date || !cls) return showToast("日付とクラス名は必須です");
 
-            filtered.forEach(s => {
-                const config = state.timeConfig.find(p => p.id == s.periodId);
-                const card = document.createElement('div');
-                card.className = "bg-white p-4 rounded-2xl shadow-sm border border-transparent hover:border-indigo-300 transition-all cursor-pointer";
-                card.onclick = () => openClassroom(s);
-                card.innerHTML = `
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded">${config?.label || '不明'}</span>
-                        <span class="text-[10px] text-gray-400">${config?.start} ~ ${config?.end}</span>
-                    </div>
-                    <div class="font-bold text-gray-800">${s.className}</div>
-                    <div class="text-[10px] text-gray-400 mt-2 truncate">${s.aiPoints.join(' / ')}</div>
-                `;
-                list.appendChild(card);
-            });
-            document.getElementById('current-time-display').innerText = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            const data = { id, date, periodId: period, className: cls, criteria: crit, aiPoints: state.currentAiPoints };
+            const idx = state.schedules.findIndex(s => s.id === id);
+            if (idx > -1) state.schedules[idx] = data;
+            else state.schedules.push(data);
+
+            localStorage.setItem(`${appId}_schedules`, JSON.stringify(state.schedules));
+            resetForm();
+            showPage('dashboard');
+            showToast("保存完了");
+        }
+
+        function resetForm() {
+            document.getElementById('edit-id').value = '';
+            document.getElementById('input-class').value = '';
+            document.getElementById('input-criteria').value = '';
+            document.getElementById('ai-points-list').innerHTML = '';
+            document.getElementById('ai-placeholder').classList.remove('hidden');
+            document.getElementById('ai-keyword-box').classList.add('hidden');
+            document.getElementById('save-btn').innerText = "授業を登録する";
+            state.currentAiPoints = [];
         }
 
         function openClassroom(s) {
             state.selectedClassId = s.id;
-            const config = state.timeConfig.find(p => p.id == s.periodId);
             document.getElementById('view-class-title').innerText = s.className;
-            document.getElementById('view-class-info').innerText = `${s.date} ${config?.label} (${config?.start}~${config?.end})`;
-            
-            const pointsArea = document.getElementById('view-ai-points');
-            pointsArea.innerHTML = s.aiPoints.map(p => `<div>✅ ${p}</div>`).join('') || "・行動目安は未設定です";
-
-            renderSeatingGrid();
-            renderLiveLogs();
+            const conf = state.timeConfig.find(p => p.id == s.periodId);
+            document.getElementById('view-class-info').innerText = `${s.date} — ${conf?.label || ''}`;
+            document.getElementById('view-ai-points').innerHTML = s.aiPoints.map(p => `<div>✅ ${p}</div>`).join('') || "観察ポイントなし";
+            renderLiveSeating();
+            renderLogs();
             showPage('classroom');
         }
 
-        function renderSeatingGrid() {
+        function renderLiveSeating() {
             const grid = document.getElementById('seating-grid');
             const { cols, total, students } = state.classConfig;
             grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
@@ -370,60 +481,51 @@
             for (let i = 0; i < total; i++) {
                 const name = students[i] || "";
                 const seat = document.createElement('div');
-                // 生徒がいればクリック可能。いなければ空席表示
                 if (name) {
-                    seat.className = "seat bg-white border border-gray-300 rounded-lg flex flex-col items-center justify-center p-1 cursor-pointer shadow-sm";
-                    seat.innerHTML = `<span class="text-[10px] font-bold text-gray-700 break-all text-center">${name}</span>`;
-                    seat.onclick = () => openEvalModal(i, name);
+                    seat.className = "seat bg-white border-2 border-transparent rounded-2xl flex items-center justify-center p-2 cursor-pointer shadow-sm hover:border-indigo-500 hover:shadow-lg transition-all active:scale-95";
+                    seat.innerHTML = `<span class="text-[10px] font-black text-gray-700 text-center leading-tight">${name}</span>`;
+                    seat.onclick = () => {
+                        state.selectedStudent = { idx: i, name };
+                        document.getElementById('modal-student-name').innerText = name;
+                        document.getElementById('eval-modal').classList.remove('hidden');
+                    };
                 } else {
-                    seat.className = "seat bg-gray-100 border border-dashed border-gray-300 rounded-lg";
+                    seat.className = "seat bg-gray-300/20 border-2 border-dashed border-gray-300/40 rounded-2xl";
                 }
                 grid.appendChild(seat);
             }
         }
 
-        function openEvalModal(idx, name) {
-            state.selectedStudent = { idx, name };
-            document.getElementById('modal-student-name').innerText = name;
-            document.getElementById('eval-modal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('eval-modal').classList.add('hidden');
-        }
-
         function recordEval(action) {
-            const entry = {
+            const log = {
                 id: Date.now(),
                 classId: state.selectedClassId,
-                studentIdx: state.selectedStudent.idx,
-                studentName: state.selectedStudent.name,
+                name: state.selectedStudent.name,
                 action: action,
-                time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+                time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
             };
-            state.logs.push(entry);
+            state.logs.push(log);
             localStorage.setItem(`${appId}_logs`, JSON.stringify(state.logs));
-            
+            renderLogs();
             closeModal();
-            renderLiveLogs();
-            showToast(`${state.selectedStudent.name}の評価を記録しました`);
+            showToast(`${state.selectedStudent.name} を記録`);
         }
 
-        function renderLiveLogs() {
+        function renderLogs() {
             const list = document.getElementById('live-log-list');
             const empty = document.getElementById('empty-log-msg');
-            const currentLogs = state.logs.filter(l => l.classId == state.selectedClassId).sort((a,b) => b.id - a.id);
+            const current = state.logs.filter(l => l.classId == state.selectedClassId).sort((a,b) => b.id - a.id);
             
-            if (currentLogs.length > 0) {
+            if (current.length > 0) {
                 empty.classList.add('hidden');
-                list.innerHTML = currentLogs.map(l => `
-                    <div class="log-enter bg-indigo-50 p-2 rounded-lg border border-indigo-100 flex justify-between items-center group">
-                        <div class="flex-1">
-                            <div class="text-[10px] font-bold text-gray-400">${l.time}</div>
-                            <div class="text-xs text-indigo-900 font-bold">${l.studentName}</div>
-                            <div class="text-[10px] text-indigo-700">${l.action}</div>
+                list.innerHTML = current.map(l => `
+                    <div class="log-enter bg-gray-50 p-3 rounded-2xl border flex justify-between items-center group">
+                        <div>
+                            <div class="text-[8px] font-black text-indigo-400 uppercase tracking-widest">${l.time}</div>
+                            <div class="text-[11px] font-black text-gray-800">${l.name}</div>
+                            <div class="text-[10px] font-bold text-indigo-600">${l.action}</div>
                         </div>
-                        <button onclick="deleteLog(${l.id})" class="text-red-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition">✕</button>
+                        <button onclick="deleteLog(${l.id})" class="text-rose-300 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition px-2 font-bold">✕</button>
                     </div>
                 `).join('');
             } else {
@@ -435,18 +537,20 @@
         function deleteLog(id) {
             state.logs = state.logs.filter(l => l.id != id);
             localStorage.setItem(`${appId}_logs`, JSON.stringify(state.logs));
-            renderLiveLogs();
+            renderLogs();
         }
+
+        function closeModal() { document.getElementById('eval-modal').classList.add('hidden'); }
 
         // --- Settings & Utils ---
         function renderSettings() {
             const list = document.getElementById('time-config-list');
             list.innerHTML = state.timeConfig.map(p => `
-                <div class="flex items-center gap-2 border-b pb-2 last:border-none">
-                    <span class="text-xs font-bold w-12 text-gray-400">${p.label}</span>
-                    <input type="time" value="${p.start}" onchange="updateTime(${p.id}, 'start', this.value)" class="text-xs border p-1 rounded">
-                    <span class="text-gray-300">~</span>
-                    <input type="time" value="${p.end}" onchange="updateTime(${p.id}, 'end', this.value)" class="text-xs border p-1 rounded">
+                <div class="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl">
+                    <span class="text-[10px] font-black w-16 text-gray-400 uppercase">${p.label}</span>
+                    <input type="time" value="${p.start}" onchange="updateTime(${p.id}, 'start', this.value)" class="text-xs border-none bg-white p-2 rounded-lg font-bold">
+                    <span class="text-gray-300">—</span>
+                    <input type="time" value="${p.end}" onchange="updateTime(${p.id}, 'end', this.value)" class="text-xs border-none bg-white p-2 rounded-lg font-bold">
                 </div>
             `).join('');
         }
@@ -456,34 +560,27 @@
             localStorage.setItem(`${appId}_timeConfig`, JSON.stringify(state.timeConfig));
         }
 
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.innerText = msg;
-            t.classList.add('opacity-100');
-            setTimeout(() => t.classList.remove('opacity-100'), 2000);
-        }
-
         function renderScheduleList() {
             const list = document.getElementById('all-schedule-list');
             list.innerHTML = state.schedules.sort((a,b) => new Date(b.date) - new Date(a.date)).map(s => `
-                <div class="bg-white p-3 rounded-xl border flex justify-between items-center">
+                <div class="bg-white p-4 rounded-2xl border flex justify-between items-center group shadow-sm">
                     <div>
-                        <div class="text-[10px] text-gray-400 font-bold">${s.date} - ${state.timeConfig.find(p => p.id == s.periodId)?.label}</div>
-                        <div class="text-sm font-bold text-gray-700">${s.className}</div>
+                        <div class="text-[9px] text-gray-400 font-bold">${s.date} | ${state.timeConfig.find(p => p.id == s.periodId)?.label || ''}</div>
+                        <div class="text-sm font-black text-gray-800">${s.className}</div>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="editSchedule(${s.id})" class="text-indigo-600 text-[10px] font-bold bg-indigo-50 px-2 py-1 rounded">編集</button>
-                        <button onclick="deleteSchedule(${s.id})" class="text-red-400 text-[10px] font-bold px-2 py-1 rounded">削除</button>
+                        <button onclick="editSchedule('${s.id}')" class="text-indigo-600 text-[10px] font-black bg-indigo-50 px-4 py-2 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">編集</button>
+                        <button onclick="deleteSchedule('${s.id}')" class="text-rose-400 text-[10px] font-black bg-rose-50 px-4 py-2 rounded-xl hover:bg-rose-500 hover:text-white transition-all">削除</button>
                     </div>
                 </div>
             `).join('');
             
-            const periodSel = document.getElementById('input-period');
-            if (periodSel.options.length === 0) {
+            const sel = document.getElementById('input-period');
+            if (sel.options.length === 0) {
                 state.timeConfig.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id; opt.innerText = p.label;
-                    periodSel.appendChild(opt);
+                    sel.appendChild(opt);
                 });
             }
         }
@@ -496,20 +593,36 @@
             document.getElementById('input-class').value = s.className;
             document.getElementById('input-criteria').value = s.criteria;
             state.currentAiPoints = s.aiPoints;
-            document.getElementById('ai-result-area').innerHTML = s.aiPoints.map(p => `<div class="font-bold">✅ ${p}</div>`).join('');
+            const list = document.getElementById('ai-points-list');
+            document.getElementById('ai-placeholder').classList.add('hidden');
+            list.innerHTML = s.aiPoints.map(p => `<li>${p}</li>`).join('');
             document.getElementById('save-btn').innerText = "更新する";
             window.scrollTo(0, 0);
         }
 
         function deleteSchedule(id) {
-            if (!confirm("この予定を削除しますか？")) return;
+            if (!confirm("予定を削除しますか？")) return;
             state.schedules = state.schedules.filter(s => s.id != id);
             localStorage.setItem(`${appId}_schedules`, JSON.stringify(state.schedules));
             renderScheduleList();
             renderDashboard();
         }
 
-        window.onload = () => renderDashboard();
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('opacity-100', 'translate-y-4');
+            setTimeout(() => t.classList.remove('opacity-100', 'translate-y-4'), 3000);
+        }
+
+        window.onload = () => {
+            renderDashboard();
+            const dateInput = document.getElementById('input-date');
+            if (!dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+            setInterval(() => {
+                document.getElementById('current-time-display').innerText = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+            }, 10000);
+        };
     </script>
 </body>
 </html>
