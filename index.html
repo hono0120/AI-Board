@@ -3,593 +3,873 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>授業評価アシスタント | Teacher Support Pro</title>
+    <title>パステル・ティーチャー・ログ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --primary: #e8f5e9;
-            --accent: #81c784;
-            --dark-green: #2e7d32;
-            --bg: #f9fbf9;
-            --white: #ffffff;
-            --good: #c8e6c9;
-            --bad: #ffccbc;
-            --gray: #f0f0f0;
-            --selected: #4caf50;
+            --pastel-green: #e8f5e9;
+            --light-green: #c8e6c9;
+            --accent-green: #81c784;
+            --text-main: #2e7d32;
         }
-
         body {
-            font-family: 'Helvetica Neue', Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
-            background-color: var(--bg);
-            color: #333;
-            margin: 0; padding: 0;
-            display: flex; flex-direction: column;
+            background-color: var(--pastel-green);
+            color: var(--text-main);
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            margin: 0;
+            padding-bottom: 80px; /* For bottom navigation */
             min-height: 100vh;
         }
-
-        header {
-            background-color: var(--accent);
-            color: white;
-            padding: 0.8rem 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0; z-index: 1001;
-        }
-
-        .current-time {
-            font-size: 0.9rem;
-            background: rgba(0,0,0,0.1);
-            padding: 4px 10px;
-            border-radius: 15px;
-        }
-
-        main {
-            flex: 1;
-            padding: 20px;
-            max-width: 1400px;
-            width: 95%;
-            margin: 0 auto;
-            padding-bottom: 100px;
-        }
-
         .card {
-            background: var(--white);
-            border-radius: 20px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 20px;
+            margin-bottom: 20px;
         }
-
-        h2, h3 { color: var(--dark-green); margin-top: 0; }
-
-        label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.9rem; color: #666; }
-
-        input, select, textarea {
-            width: 100%; padding: 12px; margin: 8px 0;
-            border: 2px solid var(--primary);
-            border-radius: 10px; font-size: 1rem; box-sizing: border-box;
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            z-index: 1000;
+        }
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 10px;
+            color: #888;
+            cursor: pointer;
+        }
+        .tab-item.active {
+            color: var(--accent-green);
+        }
+        .btn {
+            background-color: var(--light-green);
+            color: var(--text-main);
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: var(--accent-green);
+            color: white;
+        }
+        .btn-outline {
+            border: 2px solid var(--light-green);
+            background: transparent;
+        }
+        .seat {
+            width: 80px;
+            height: 60px;
+            border: 2px solid var(--light-green);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            position: relative;
             background: white;
         }
-
-        .btn {
-            background-color: var(--accent);
-            color: white; border: none; padding: 12px 20px;
-            border-radius: 25px; cursor: pointer;
-            font-weight: bold; font-size: 1rem;
-            transition: all 0.2s; display: inline-flex;
-            align-items: center; justify-content: center; gap: 8px;
+        .seat.empty { background-color: #f5f5f5; border-color: #ddd; color: #aaa; }
+        .seat:hover { background-color: var(--pastel-green); }
+        .time-display {
+            position: fixed;
+            top: 10px;
+            right: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            background: rgba(255,255,255,0.7);
+            padding: 5px 15px;
+            border-radius: 20px;
+            z-index: 500;
         }
-
-        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
-
-        .btn:hover:not(:disabled) { filter: brightness(0.9); transform: translateY(-1px); }
-        .btn-outline { background: transparent; border: 2px solid var(--accent); color: var(--dark-green); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; }
-
-        .tabs {
-            display: flex; gap: 10px; overflow-x: auto;
-            margin-bottom: 20px; padding-bottom: 5px;
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
         }
-        .tab {
-            padding: 8px 16px; background: var(--white);
-            border: 2px solid var(--primary); border-radius: 20px;
-            cursor: pointer; white-space: nowrap; font-size: 0.9rem;
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
         }
-        .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
-
-        .seating-grid { display: grid; gap: 8px; margin-top: 15px; }
-        .seat {
-            aspect-ratio: 1.2 / 1; border: 1px solid var(--primary);
-            border-radius: 6px; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            background: white; cursor: pointer; font-size: 0.75rem; text-align: center;
-            padding: 4px; overflow: hidden;
-            position: relative;
-            transition: background 0.2s;
+        .keyword-chip {
+            display: inline-block;
+            padding: 5px 12px;
+            margin: 4px;
+            border-radius: 15px;
+            background: var(--pastel-green);
+            cursor: pointer;
+            font-size: 13px;
         }
-        .seat span { font-size: 0.6rem; color: #888; margin-top: 2px; }
-
-        .bottom-nav {
-            position: fixed; bottom: 0; width: 100%; height: 75px;
-            background: var(--white); display: flex;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.05); z-index: 1000;
+        .keyword-chip.selected {
+            background: var(--accent-green);
+            color: white;
         }
-        .nav-item {
-            cursor: pointer; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            font-size: 0.7rem; color: #888; flex: 1;
-        }
-        .nav-item.active { color: var(--dark-green); font-weight: bold; }
-
-        .ai-container { background: #f0fdf4; border: 2px solid var(--accent); border-radius: 15px; padding: 20px; margin: 15px 0; }
-        .keyword-tag { display: inline-block; background: var(--white); border: 1px solid var(--accent); padding: 5px 12px; border-radius: 15px; margin: 4px; font-size: 0.8rem; cursor: pointer; }
-        .keyword-tag.selected { background: var(--accent); color: white; }
-
-        .hidden { display: none !important; }
-
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; z-index: 2000; justify-content: center; align-items: center; }
-        .modal { background: white; width: 90%; max-width: 500px; border-radius: 20px; padding: 25px; }
-        
-        .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .action-btn { padding: 15px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: #333; }
     </style>
 </head>
 <body>
 
-<header>
-    <div id="header-title">ホーム</div>
-    <div class="current-time" id="digital-clock">00:00:00</div>
-</header>
+<div id="currentTime" class="time-display"></div>
 
-<main>
-    <!-- View: Home -->
-    <div id="view-home" class="page-view">
-        <div class="card">
-            <h2>本日の授業予定</h2>
-            <div id="home-today-date" style="margin-bottom: 12px; color: var(--dark-green); font-weight: bold;"></div>
-            <div id="today-schedule-list"></div>
+<div id="app" class="max-w-4xl mx-auto p-4 pt-12">
+    <!-- 各セクションのコンテナ -->
+    <div id="section-home" class="section">
+        <h1 class="text-2xl font-bold mb-6">本日の授業予定</h1>
+        <div id="today-plans" class="space-y-4">
+            <!-- 予定がここに表示される -->
         </div>
-        <div class="card">
-            <h2>明日以降の予定</h2>
-            <div id="future-schedule-list"></div>
-        </div>
+        <h2 class="text-xl font-bold mt-10 mb-4">これからの予定</h2>
+        <div id="future-plans" class="space-y-4"></div>
     </div>
 
-    <!-- View: List -->
-    <div id="view-list" class="page-view hidden">
-        <div class="tabs" id="list-class-tabs"></div>
+    <div id="section-plan" class="section hidden">
+        <h1 class="text-2xl font-bold mb-6">授業計画・評価基準設定</h1>
         <div class="card">
-            <h2 id="list-title">すべての授業計画</h2>
-            <div id="all-plans-list"></div>
-            <button class="btn" style="width: 100%; margin-top: 20px;" onclick="prepareNewPlan()">＋ 新規授業計画を作成</button>
-        </div>
-    </div>
-
-    <!-- View: Plan Edit -->
-    <div id="view-plan" class="page-view hidden">
-        <div class="card">
-            <h2 id="plan-form-title">授業の登録・編集</h2>
-            <div style="display: flex; gap: 10px;">
-                <div style="flex: 1;"><label>日付</label><input type="date" id="plan-date"></div>
-                <div style="flex: 1;"><label>校時</label><select id="plan-period"></select></div>
-            </div>
-            <label>クラス選択</label>
-            <select id="plan-class-select"></select>
-
-            <label>評価基準（教科書の目標など）</label>
-            <textarea id="raw-criteria" placeholder="教科書の目標を貼り付けてください"></textarea>
-            <button class="btn" id="ai-gen-btn" onclick="processAI()">AI観察ポイント自動生成</button>
-
-            <div id="ai-section" class="ai-container hidden">
-                <h3>AI抽出ポイント</h3>
-                <div id="ai-output" style="font-weight: bold; margin-bottom: 10px; white-space: pre-wrap;"></div>
-                <div id="ai-keywords"></div>
-                <label>追加要望</label>
-                <input type="text" id="teacher-plus" placeholder="もっと具体的に、など">
-                <button class="btn btn-outline" style="width: 100%;" onclick="processAI(true)">AIで再構成する</button>
-            </div>
-
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
-                <button class="btn" style="flex: 2;" onclick="savePlan()">保存</button>
-                <button class="btn btn-outline" style="flex: 1;" onclick="switchView('list')">キャンセル</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- View: Class Management -->
-    <div id="view-seating-list" class="page-view hidden">
-        <div class="card">
-            <h2>クラス・座席表管理</h2>
-            <div id="saved-classes-list"></div>
-            <button class="btn" style="width: 100%; margin-top: 20px;" onclick="prepareNewClass()">＋ 新規クラスを作成</button>
-        </div>
-    </div>
-
-    <!-- View: Class Edit -->
-    <div id="view-class-edit" class="page-view hidden">
-        <div class="card">
-            <h2 id="class-edit-title">クラスの登録・編集</h2>
-            <label>クラス名</label>
-            <input type="text" id="edit-class-name" placeholder="例: 中1A">
-            <div style="display: flex; gap: 10px;">
-                <div style="flex: 1;"><label>行（縦）</label><input type="number" id="edit-class-rows" value="6"></div>
-                <div style="flex: 1;"><label>列（横）</label><input type="number" id="edit-class-cols" value="6"></div>
-            </div>
-            <label>生徒名（カンマまたは改行区切り）</label>
-            <textarea id="edit-class-students" rows="8" placeholder="田中, 佐藤, 鈴木..."></textarea>
+            <label class="block mb-2 font-bold">教科書の評価基準をコピー＆ペースト</label>
+            <textarea id="raw-criteria" class="w-full h-32 p-3 border rounded-lg focus:ring-2 focus:ring-green-300 outline-none" placeholder="例：ある数が方程式の解であるかどうかを判断する方法を考え、説明することができる。"></textarea>
             
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
-                <button class="btn" style="flex: 2;" onclick="saveClass()">保存</button>
-                <button class="btn btn-outline" style="flex: 1;" onclick="switchView('seating-list')">キャンセル</button>
+            <div class="mt-4 flex flex-wrap gap-2">
+                <button class="btn" onclick="generateObservationPoints()">AIで観察ポイントを生成</button>
+            </div>
+
+            <div id="ai-output-area" class="mt-4 p-4 bg-green-50 rounded-lg hidden">
+                <h3 class="font-bold text-sm mb-2 text-green-700">AIが抽出した観察ポイント：</h3>
+                <ul id="observation-list" class="space-y-1 mb-4"></ul>
+                
+                <div class="border-t pt-4">
+                    <p class="text-xs text-gray-500 mb-2">キーワードの抽出と調整：</p>
+                    <div id="extracted-keywords" class="flex flex-wrap mb-2"></div>
+                    <input type="text" id="manual-keyword" class="w-full p-2 text-sm border rounded mb-2" placeholder="注目したいポイントを自分で追加...">
+                    <button class="btn btn-outline text-sm py-1" onclick="regenerateObservationPoints()">キーワードを含めて再作成</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                <div>
+                    <label class="block text-xs font-bold mb-1">月</label>
+                    <select id="plan-month" class="w-full p-2 border rounded"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold mb-1">日</label>
+                    <select id="plan-day" class="w-full p-2 border rounded"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold mb-1">時限</label>
+                    <select id="plan-period" class="w-full p-2 border rounded"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold mb-1">クラス/座席表</label>
+                    <select id="plan-layout" class="w-full p-2 border rounded"></select>
+                </div>
+            </div>
+            
+            <button class="btn w-full mt-6" onclick="savePlan()">授業計画を保存する</button>
+        </div>
+    </div>
+
+    <div id="section-history" class="section hidden">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">授業計画一覧</h1>
+            <button class="btn py-1" onclick="exportEvaluationHistory()">全記録をCSV出力</button>
+        </div>
+        <div id="class-tabs" class="flex overflow-x-auto gap-2 mb-4 pb-2"></div>
+        <div id="plans-list-container" class="space-y-4"></div>
+    </div>
+
+    <div id="section-seats" class="section hidden">
+        <h1 class="text-2xl font-bold mb-6">座席表設定</h1>
+        <div class="card">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block mb-2 font-bold">座席表名 (例: 1年A組)</label>
+                    <input type="text" id="seat-layout-name" class="w-full p-2 border rounded" placeholder="学年・クラス名">
+                    
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold mb-1">列数 (横)</label>
+                            <input type="number" id="seat-cols" class="w-full p-2 border rounded" value="6" oninput="updateSeatPreview()">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-1">行数 (縦)</label>
+                            <input type="number" id="seat-rows" class="w-full p-2 border rounded" value="5" oninput="updateSeatPreview()">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-xs font-bold mb-1">総人数: <span id="seat-total-calc" class="font-normal text-gray-500"></span></label>
+                        <input type="number" id="seat-total-count" class="w-full p-2 border rounded" value="30">
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-xs font-bold mb-1">生徒名入力 (1行に1人)</label>
+                        <textarea id="seat-student-names" class="w-full h-32 p-2 text-sm border rounded" placeholder="田中 太郎&#10;佐藤 花子..." oninput="updateSeatPreview()"></textarea>
+                    </div>
+
+                    <button class="btn w-full mt-6" onclick="saveSeatLayout()">座席表を新規作成/保存</button>
+                    <div id="saved-layouts-list" class="mt-4 space-y-2"></div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block mb-2 font-bold">プレビュー・編集</label>
+                    <p class="text-xs text-gray-500 mb-2">座席をドラッグして位置を入れ替えられます</p>
+                    <div id="seat-preview-container" class="border p-4 bg-gray-50 rounded-lg overflow-x-auto min-h-[300px] flex justify-center">
+                        <!-- Preview Grid -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- View: Settings -->
-    <div id="view-settings" class="page-view hidden">
+    <div id="section-settings" class="section hidden">
+        <h1 class="text-2xl font-bold mb-6">アプリ設定</h1>
         <div class="card">
-            <h2>校時・評価設定</h2>
-            <h3>校時設定</h3>
-            <div id="period-editor"></div>
-            <button class="btn btn-outline" onclick="addEntry('periods')">＋ 追加</button>
-            <h3 style="margin-top:20px">評価アクション</h3>
-            <div id="action-editor"></div>
-            <button class="btn btn-outline" onclick="addEntry('actions')">＋ 追加</button>
+            <h3 class="font-bold mb-4">時限設定</h3>
+            <div id="period-settings-list" class="space-y-2 mb-4"></div>
+            <button class="btn btn-outline text-sm" onclick="addPeriodSetting()">時限を追加</button>
+        </div>
+        
+        <div class="card">
+            <h3 class="font-bold mb-4">評価アクション設定</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-green-700 mb-2">良い行動 (+)</label>
+                    <div id="positive-actions" class="space-y-2"></div>
+                    <button class="btn-outline text-xs mt-2 px-2 py-1 rounded" onclick="addAction('positive')">追加</button>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-red-700 mb-2">あまり良くない行動 (-)</label>
+                    <div id="negative-actions" class="space-y-2"></div>
+                    <button class="btn-outline text-xs mt-2 px-2 py-1 rounded" onclick="addAction('negative')">追加</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- View: Run (Lesson Active) -->
-    <div id="view-lesson-run" class="page-view hidden">
-        <div class="card" id="run-header-info"></div>
-        <div id="run-grid" class="seating-grid"></div>
-        <button class="btn btn-outline" style="margin-top: 20px;" onclick="switchView('home')">終了して戻る</button>
+    <!-- 評価実行画面 (モーダル的だがメインUI) -->
+    <div id="section-evaluate" class="section hidden">
+        <div class="flex justify-between items-center mb-4">
+            <button class="btn btn-outline py-1 px-4" onclick="navigate('home')">← 戻る</button>
+            <h2 id="eval-header" class="text-lg font-bold"></h2>
+            <div></div>
+        </div>
+        
+        <div id="eval-criteria-reminder" class="card bg-green-50 mb-4 border-l-4 border-green-400 py-3">
+            <p class="text-xs text-green-800 font-bold mb-1">【本日の観察ポイント】</p>
+            <div id="eval-points-display" class="text-sm"></div>
+        </div>
+
+        <div id="eval-seat-grid" class="flex justify-center overflow-x-auto p-4 bg-white rounded-xl shadow-inner min-h-[400px]">
+            <!-- 実行用座席表 -->
+        </div>
     </div>
-</main>
+</div>
 
-<nav class="bottom-nav">
-    <div class="nav-item" onclick="switchView('home')"><span>🏠</span><span>ホーム</span></div>
-    <div class="nav-item" onclick="switchView('list')"><span>📁</span><span>授業計画</span></div>
-    <div class="nav-item" onclick="switchView('seating-list')"><span>🪑</span><span>座席表</span></div>
-    <div class="nav-item" onclick="switchView('settings')"><span>⚙️</span><span>設定</span></div>
-</nav>
+<!-- タブバー -->
+<div class="tab-bar">
+    <div class="tab-item active" onclick="navigate('home')">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+        <span>ホーム</span>
+    </div>
+    <div class="tab-item" onclick="navigate('plan')">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        <span>計画作成</span>
+    </div>
+    <div class="tab-item" onclick="navigate('history')">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+        <span>一覧</span>
+    </div>
+    <div class="tab-item" onclick="navigate('seats')">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        <span>座席表設定</span>
+    </div>
+    <div class="tab-item" onclick="navigate('settings')">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        <span>設定</span>
+    </div>
+</div>
 
-<div id="eval-modal-overlay" class="modal-overlay">
-    <div class="modal">
-        <h2 id="eval-st-name"></h2>
-        <div id="eval-target" style="padding: 10px; background: var(--primary); border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem;"></div>
-        <div class="action-grid" id="eval-btns"></div>
-        <button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="closeModal()">閉じる</button>
+<!-- 評価アクションモーダル -->
+<div id="action-modal" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-student-name" class="text-xl font-bold mb-4">生徒名</h3>
+        <div class="space-y-6">
+            <div>
+                <p class="text-sm font-bold text-green-700 mb-2">良い行動</p>
+                <div id="modal-pos-actions" class="grid grid-cols-2 gap-2"></div>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-red-700 mb-2">あまり良くない行動</p>
+                <div id="modal-neg-actions" class="grid grid-cols-2 gap-2"></div>
+            </div>
+        </div>
+        <button class="btn w-full mt-8" onclick="closeModal()">閉じる</button>
     </div>
 </div>
 
 <script>
-    // --- API Configuration ---
-    // ここにAPIキーをセットすることで、ユーザーによる入力を不要にします。
-    const apiKey = ""; 
+    // --- 初期データ & 定数 ---
+    const apiKey = ""; // APIキーは環境によって自動挿入されます
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'teacher-app';
 
-    let appState = {
-        periods: [{id:1, name:"1限", start:"08:50"}, {id:2, name:"2限", start:"09:50"}, {id:3, name:"3限", start:"10:50"}],
-        classes: [{id:"c1", name:"中1A", rows:6, cols:6, students: ["田中", "佐藤", "鈴木", "高橋", "伊藤", "渡辺"]}],
+    let state = {
         plans: [],
-        actions: [{id:1, text:"発言", type:"good"}, {id:2, text:"教え合い", type:"good"}, {id:3, text:"集中欠如", type:"bad"}],
-        evaluations: [],
-        editingPlanId: null,
-        editingClassId: null,
-        selectedKeywords: [],
-        activeListTab: "すべて"
+        seatLayouts: [],
+        periodSettings: [
+            { id: 1, label: '1時間目', start: '08:50', end: '09:40' },
+            { id: 2, label: '2時間目', start: '09:50', end: '10:40' },
+            { id: 3, label: '3時間目', start: '10:50', end: '11:40' },
+            { id: 4, label: '4時間目', start: '11:50', end: '12:40' }
+        ],
+        actions: {
+            positive: ['発言した', '他者に教えた', '良い着眼点', '集中している'],
+            negative: ['騒がしい', '授業中断', '居眠り', '忘れ物']
+        },
+        evaluations: [], // { planId, studentName, action, timestamp, type }
+        tempKeywords: [],
+        selectedKeywords: []
     };
 
-    // --- Core Logic ---
-    function load() {
-        const d = localStorage.getItem('teacher_pro_v6');
-        if(d) appState = JSON.parse(d);
-        updateClock();
-        setInterval(updateClock, 1000);
-        switchView('home');
+    // --- ローカルストレージ管理 ---
+    function saveToStorage() {
+        localStorage.setItem(`app_${appId}_state`, JSON.stringify(state));
     }
 
-    function save() { localStorage.setItem('teacher_pro_v6', JSON.stringify(appState)); }
+    function loadFromStorage() {
+        const saved = localStorage.getItem(`app_${appId}_state`);
+        if (saved) {
+            state = JSON.parse(saved);
+            // レガシーデータ対応
+            if (!state.evaluations) state.evaluations = [];
+        }
+        initUI();
+    }
 
-    function updateClock() {
+    // --- UI初期化 ---
+    function initUI() {
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // 日時セレクトボックス初期化
+        const mSelect = document.getElementById('plan-month');
+        const dSelect = document.getElementById('plan-day');
+        for(let i=1; i<=12; i++) mSelect.add(new Option(i + '月', i));
+        for(let i=1; i<=31; i++) dSelect.add(new Option(i + '日', i));
         const now = new Date();
-        const el = document.getElementById('digital-clock');
-        if(el) el.innerText = now.toLocaleTimeString('ja-JP');
+        mSelect.value = now.getMonth() + 1;
+        dSelect.value = now.getDate();
+
+        renderPeriodSettings();
+        renderLayoutOptions();
+        renderActionSettings();
+        renderHome();
+        renderPlansList();
+        renderLayoutsList();
+        updateSeatPreview();
     }
 
-    function switchView(id) {
-        document.querySelectorAll('.page-view').forEach(v => v.classList.add('hidden'));
-        const target = document.getElementById(`view-${id}`);
-        if(target) target.classList.remove('hidden');
-        
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        const navMap = {home:0, list:1, 'seating-list':2, settings:3};
-        if(navMap[id] !== undefined) document.querySelectorAll('.nav-item')[navMap[id]].classList.add('active');
-
-        if(id === 'home') renderHome();
-        if(id === 'list') renderPlanTabs();
-        if(id === 'plan') renderPlanForm();
-        if(id === 'seating-list') renderClassesList();
-        if(id === 'settings') renderSettings();
-    }
-
-    // --- AI Core Logic with Retry Mechanism ---
-    async function fetchGeminiAI(payload, retries = 5, delay = 1000) {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        
-        for (let i = 0; i < retries; i++) {
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    if (response.status === 403 || response.status === 401) {
-                        throw new Error("APIキーが無効、または認証エラーです。");
-                    }
-                    throw new Error(`HTTP Error: ${response.status}`);
-                }
-                return await response.json();
-            } catch (err) {
-                if (i === retries - 1) throw err;
-                await new Promise(res => setTimeout(res, delay));
-                delay *= 2; 
-            }
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('currentTime').innerText = now.toLocaleString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        // 日付が変わったらホームを更新するロジック（簡易的）
+        if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+            renderHome();
         }
     }
 
-    async function processAI(isRedo = false) {
-        const raw = document.getElementById('raw-criteria').value;
-        const plus = document.getElementById('teacher-plus').value;
-        const btn = document.getElementById('ai-gen-btn');
+    function navigate(sectionId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('section-' + sectionId).classList.remove('hidden');
+        
+        document.querySelectorAll('.tab-item').forEach((item, idx) => {
+            const sections = ['home', 'plan', 'history', 'seats', 'settings'];
+            item.classList.toggle('active', sections[idx] === sectionId);
+        });
 
-        if (!apiKey) {
-            console.warn("API Key is missing. AI features will not work.");
-            alert("AI機能の準備ができていません。管理者にAPIキーの設定を確認してください。");
+        if (sectionId === 'home') renderHome();
+        if (sectionId === 'history') renderPlansList();
+    }
+
+    // --- AI関連 (Gemini API) ---
+    async function callGemini(prompt) {
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+            const data = await response.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } catch (e) {
+            console.error(e);
+            return "エラーが発生しました。";
+        }
+    }
+
+    async function generateObservationPoints() {
+        const criteria = document.getElementById('raw-criteria').value;
+        if (!criteria) return;
+
+        const btn = event.target;
+        btn.innerText = "生成中...";
+        btn.disabled = true;
+
+        // 観察ポイント生成
+        const prompt = `以下の評価基準から、授業中に観察すべき行動目安を3つ抽出してください。
+基準：${criteria}
+制約：
+・「・〜している」の形式で出力。
+・1つ20文字以内。
+・余計な解説は一切禁止。
+・箇条書きのみ。`;
+
+        const result = await callGemini(prompt);
+        const points = result.split('\n').filter(l => l.includes('・')).slice(0, 3);
+        
+        // キーワード抽出
+        const kwPrompt = `以下の文章から、重要なキーワードを5つ程度抽出してください。カンマ区切りで出力してください。
+文章：${criteria}`;
+        const kwResult = await callGemini(kwPrompt);
+        state.tempKeywords = kwResult.split(',').map(s => s.trim());
+        state.selectedKeywords = [];
+
+        displayObservationPoints(points);
+        renderKeywords();
+        
+        btn.innerText = "AIで観察ポイントを生成";
+        btn.disabled = false;
+    }
+
+    function displayObservationPoints(points) {
+        const area = document.getElementById('ai-output-area');
+        const list = document.getElementById('observation-list');
+        area.classList.remove('hidden');
+        list.innerHTML = points.map(p => `<li>${p}</li>`).join('');
+    }
+
+    function renderKeywords() {
+        const container = document.getElementById('extracted-keywords');
+        container.innerHTML = state.tempKeywords.map(kw => `
+            <span class="keyword-chip ${state.selectedKeywords.includes(kw) ? 'selected' : ''}" onclick="toggleKeyword('${kw}')">${kw}</span>
+        `).join('');
+    }
+
+    function toggleKeyword(kw) {
+        if (state.selectedKeywords.includes(kw)) {
+            state.selectedKeywords = state.selectedKeywords.filter(k => k !== kw);
+        } else {
+            state.selectedKeywords.push(kw);
+        }
+        renderKeywords();
+    }
+
+    async function regenerateObservationPoints() {
+        const criteria = document.getElementById('raw-criteria').value;
+        const manual = document.getElementById('manual-keyword').value;
+        const keywords = [...state.selectedKeywords];
+        if (manual) keywords.push(manual);
+
+        const prompt = `以下の評価基準とキーワードをもとに、授業中に観察すべき行動目安を3つ抽出してください。
+基準：${criteria}
+重点キーワード：${keywords.join(', ')}
+制約：
+・「・〜している」の形式で出力。
+・1つ20文字以内。
+・余計な解説は一切禁止。`;
+
+        const result = await callGemini(prompt);
+        const points = result.split('\n').filter(l => l.includes('・')).slice(0, 3);
+        displayObservationPoints(points);
+    }
+
+    // --- 授業計画保存 ---
+    function savePlan() {
+        const criteria = document.getElementById('raw-criteria').value;
+        const observationHtml = document.getElementById('observation-list').innerHTML;
+        const month = document.getElementById('plan-month').value;
+        const day = document.getElementById('plan-day').value;
+        const periodId = document.getElementById('plan-period').value;
+        const layoutId = document.getElementById('plan-layout').value;
+
+        if (!criteria || !layoutId) {
+            alert("評価基準と座席表を選択してください。");
             return;
         }
 
-        if(!raw) return alert("授業の目標や基準を入力してください。");
+        const plan = {
+            id: Date.now(),
+            criteria,
+            observationHtml,
+            month: parseInt(month),
+            day: parseInt(day),
+            periodId: parseInt(periodId),
+            layoutId: layoutId
+        };
+
+        state.plans.push(plan);
+        saveToStorage();
+        alert("授業計画を保存しました。");
+        navigate('home');
+    }
+
+    // --- 座席表設定 ---
+    function updateSeatPreview() {
+        const cols = parseInt(document.getElementById('seat-cols').value) || 1;
+        const rows = parseInt(document.getElementById('seat-rows').value) || 1;
+        const namesText = document.getElementById('seat-student-names').value;
+        const names = namesText.split('\n').map(n => n.trim()).filter(n => n);
         
-        btn.innerText = "AIが分析中..."; 
-        btn.disabled = true;
+        document.getElementById('seat-total-calc').innerText = `(最大 ${cols * rows} 席)`;
+        
+        const container = document.getElementById('seat-preview-container');
+        container.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = `repeat(${cols}, 80px)`;
+        grid.style.gap = '10px';
 
-        const sysPrompt = "教員アシスタントです。入力された評価基準から「・〜している」形式で具体的な観察項目を3つ抽出してください。各項目は20文字以内で簡潔に。";
-        let userPrompt = `評価基準: ${raw}`;
-        if(isRedo) userPrompt += `\n注目キーワード: ${appState.selectedKeywords.join(',')}\n追加要望: ${plus}`;
-
-        const payload = {
-            contents: [{ parts: [{ text: userPrompt }] }],
-            systemInstruction: { parts: [{ text: sysPrompt }] }
-        };
-
-        try {
-            const data = await fetchGeminiAI(payload);
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        for (let i = 0; i < rows * cols; i++) {
+            const name = names[i] || "";
+            const seat = document.createElement('div');
+            seat.className = `seat ${!name ? 'empty' : ''}`;
+            seat.draggable = !!name;
+            seat.innerHTML = `<span>${name || (i+1)}</span>`;
+            seat.dataset.index = i;
             
-            if (text) {
-                document.getElementById('ai-output').innerText = text.trim();
-                if(!isRedo) {
-                    const kws = [...new Set(raw.match(/[一-龠]{2,}/g) || ["思考","判断","表現"])].slice(0,6);
-                    document.getElementById('ai-keywords').innerHTML = kws.map(k => `
-                        <span class="keyword-tag" onclick="this.classList.toggle('selected'); toggleKw('${k}')">${k}</span>
-                    `).join('');
-                }
-                document.getElementById('ai-section').classList.remove('hidden');
-            } else {
-                throw new Error("Invalid response");
-            }
-        } catch(e) {
-            console.error(e);
-            alert("通信エラーが発生しました。時間を置いて再度お試しください。");
-        } finally {
-            btn.innerText = "AI観察ポイント自動生成"; 
-            btn.disabled = false;
+            seat.ondragstart = (e) => e.dataTransfer.setData('text/plain', i);
+            seat.ondragover = (e) => e.preventDefault();
+            seat.ondrop = (e) => {
+                const fromIdx = e.dataTransfer.getData('text/plain');
+                swapStudentNames(fromIdx, i);
+            };
+            
+            grid.appendChild(seat);
         }
+        container.appendChild(grid);
     }
 
-    function toggleKw(k) {
-        if(appState.selectedKeywords.includes(k)) appState.selectedKeywords = appState.selectedKeywords.filter(x => x!==k);
-        else appState.selectedKeywords.push(k);
+    function swapStudentNames(idx1, idx2) {
+        const textarea = document.getElementById('seat-student-names');
+        const names = textarea.value.split('\n');
+        const temp = names[idx1];
+        names[idx1] = names[idx2];
+        names[idx2] = temp;
+        textarea.value = names.join('\n');
+        updateSeatPreview();
     }
 
-    // --- Plan Management ---
-    function renderPlanForm() {
-        const periodSelect = document.getElementById('plan-period');
-        const classSelect = document.getElementById('plan-class-select');
-        periodSelect.innerHTML = appState.periods.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-        classSelect.innerHTML = appState.classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    }
+    function saveSeatLayout() {
+        const name = document.getElementById('seat-layout-name').value;
+        if (!name) return alert("座席表名を入力してください");
 
-    function prepareNewPlan() {
-        appState.editingPlanId = null;
-        appState.selectedKeywords = [];
-        document.getElementById('plan-form-title').innerText = "新規授業計画の作成";
-        document.getElementById('plan-date').valueAsDate = new Date();
-        document.getElementById('raw-criteria').value = "";
-        document.getElementById('ai-output').innerText = "";
-        document.getElementById('ai-section').classList.add('hidden');
-        document.getElementById('teacher-plus').value = "";
-        switchView('plan');
-    }
-
-    function savePlan() {
-        const d = document.getElementById('plan-date').value;
-        const p = document.getElementById('plan-period').value;
-        const c = document.getElementById('plan-class-select').value;
-        const ai = document.getElementById('ai-output').innerText;
-        if(!d || !ai || !c) return alert("必須項目（日付・クラス・AI生成結果）が不足しています。");
-        const plan = { 
-            id: appState.editingPlanId || Date.now(), 
-            date: d, period: p, className: c, 
-            raw: document.getElementById('raw-criteria').value,
-            aiPoints: ai.split('\n').map(x => x.trim()).filter(x => x) 
+        const layout = {
+            id: 'layout_' + Date.now(),
+            name: name,
+            cols: parseInt(document.getElementById('seat-cols').value),
+            rows: parseInt(document.getElementById('seat-rows').value),
+            studentCount: parseInt(document.getElementById('seat-total-count').value),
+            names: document.getElementById('seat-student-names').value.split('\n')
         };
-        if(appState.editingPlanId) appState.plans = appState.plans.map(x => x.id === plan.id ? plan : x);
-        else appState.plans.push(plan);
-        save(); switchView('list');
+
+        state.seatLayouts.push(layout);
+        saveToStorage();
+        renderLayoutOptions();
+        renderLayoutsList();
+        alert("座席表を保存しました");
     }
 
-    function renderPlanTabs() {
-        const clsNames = ["すべて", ...new Set(appState.classes.map(c => c.name))];
-        document.getElementById('list-class-tabs').innerHTML = clsNames.map(n => `
-            <div class="tab ${appState.activeListTab === n ? 'active' : ''}" onclick="appState.activeListTab='${n}'; renderPlanTabs(); renderAllPlansList();">${n}</div>
+    function renderLayoutsList() {
+        const container = document.getElementById('saved-layouts-list');
+        container.innerHTML = state.seatLayouts.map(l => `
+            <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                <span class="text-sm font-bold">${l.name} (${l.names.filter(n=>n.trim()).length}名)</span>
+                <div class="space-x-2">
+                    <button class="text-xs text-blue-500" onclick="editLayout('${l.id}')">編集</button>
+                    <button class="text-xs text-red-500" onclick="deleteLayout('${l.id}')">削除</button>
+                </div>
+            </div>
         `).join('');
-        renderAllPlansList();
     }
 
-    function renderAllPlansList() {
-        let filtered = appState.plans;
-        if(appState.activeListTab !== "すべて") filtered = filtered.filter(p => p.className === appState.activeListTab);
-        filtered.sort((a,b) => b.date.localeCompare(a.date));
-        const list = document.getElementById('all-plans-list');
-        if(filtered.length === 0) { list.innerHTML = "<p style='color:#999; text-align:center;'>データがありません。</p>"; return; }
-        list.innerHTML = filtered.map(p => `
-            <div class="card" style="padding:15px; border-left:5px solid var(--accent); margin-bottom:10px">
-                <div style="display:flex; justify-content:space-between; align-items: center;">
-                    <div><b>${p.date} / ${p.period} / ${p.className}</b><div style="font-size:0.8rem; color:#666">${p.aiPoints.join(' / ')}</div></div>
-                    <button class="btn-outline" onclick="editPlan(${p.id})">編集</button>
-                </div>
-            </div>`).join('');
+    function editLayout(id) {
+        const l = state.seatLayouts.find(x => x.id === id);
+        if(!l) return;
+        document.getElementById('seat-layout-name').value = l.name;
+        document.getElementById('seat-cols').value = l.cols;
+        document.getElementById('seat-rows').value = l.rows;
+        document.getElementById('seat-total-count').value = l.studentCount;
+        document.getElementById('seat-student-names').value = l.names.join('\n');
+        updateSeatPreview();
     }
 
-    function editPlan(id) {
-        appState.editingPlanId = id;
-        const p = appState.plans.find(x => x.id === id);
-        if(!p) return;
-        switchView('plan');
-        document.getElementById('plan-form-title').innerText = "授業計画の修正";
-        document.getElementById('plan-date').value = p.date;
-        document.getElementById('plan-period').value = p.period;
-        document.getElementById('plan-class-select').value = p.className;
-        document.getElementById('raw-criteria').value = p.raw || "";
-        document.getElementById('ai-output').innerText = p.aiPoints.join('\n');
-        document.getElementById('ai-section').classList.remove('hidden');
+    function deleteLayout(id) {
+        if(!confirm("削除しますか？")) return;
+        state.seatLayouts = state.seatLayouts.filter(l => l.id !== id);
+        saveToStorage();
+        renderLayoutsList();
+        renderLayoutOptions();
     }
 
-    // --- Class Management ---
-    function renderClassesList() {
-        const list = document.getElementById('saved-classes-list');
-        if(appState.classes.length === 0) { list.innerHTML = "<p style='color:#999; text-align:center;'>クラスが登録されていません。</p>"; return; }
-        list.innerHTML = appState.classes.map(c => `
-            <div class="card" style="padding:15px; border-left:5px solid var(--accent); margin-bottom:10px">
-                <div style="display:flex; justify-content:space-between; align-items: center;">
-                    <div><b>${c.name}</b><div style="font-size:0.8rem; color:#666">${c.rows}行×${c.cols}列 (${c.students.length}名)</div></div>
-                    <button class="btn-outline" onclick="editClass('${c.id}')">編集</button>
-                </div>
-            </div>`).join('');
-    }
-
-    function prepareNewClass() {
-        appState.editingClassId = null;
-        document.getElementById('class-edit-title').innerText = "新規クラスを作成";
-        document.getElementById('edit-class-name').value = "";
-        document.getElementById('edit-class-rows').value = 6;
-        document.getElementById('edit-class-cols').value = 6;
-        document.getElementById('edit-class-students').value = "";
-        switchView('class-edit');
-    }
-
-    function editClass(id) {
-        appState.editingClassId = id;
-        const c = appState.classes.find(x => x.id === id);
-        if(!c) return;
-        document.getElementById('edit-class-name').value = c.name;
-        document.getElementById('edit-class-rows').value = c.rows;
-        document.getElementById('edit-class-cols').value = c.cols;
-        document.getElementById('edit-class-students').value = c.students.join(', ');
-        switchView('class-edit');
-    }
-
-    function saveClass() {
-        const name = document.getElementById('edit-class-name').value;
-        const rows = parseInt(document.getElementById('edit-class-rows').value);
-        const cols = parseInt(document.getElementById('edit-class-cols').value);
-        const stRaw = document.getElementById('edit-class-students').value;
-        if(!name || !stRaw) return alert("クラス名と生徒名を入力してください。");
-        const students = stRaw.split(/,|\n/).map(s => s.trim()).filter(s => s);
-        const cls = { id: appState.editingClassId || "c_" + Date.now(), name, rows, cols, students };
-        if(appState.editingClassId) appState.classes = appState.classes.map(x => x.id === cls.id ? cls : x);
-        else appState.classes.push(cls);
-        save(); switchView('seating-list');
-    }
-
-    // --- Home Display ---
+    // --- ホーム & 履歴一覧 ---
     function renderHome() {
+        const container = document.getElementById('today-plans');
+        const futureContainer = document.getElementById('future-plans');
         const now = new Date();
-        const today = now.toISOString().split('T')[0];
-        document.getElementById('home-today-date').innerText = now.toLocaleDateString('ja-JP', {month:'long', day:'numeric', weekday:'long'});
-        const todayPlans = appState.plans.filter(p => p.date === today).sort((a,b) => a.period.localeCompare(b.period));
-        const futurePlans = appState.plans.filter(p => p.date > today).sort((a,b) => a.date.localeCompare(b.date));
+        const tMonth = now.getMonth() + 1;
+        const tDay = now.getDate();
 
-        const drawList = (ps, elId) => {
-            const el = document.getElementById(elId);
-            if(ps.length === 0) return el.innerHTML = "<p style='color:#999; text-align:center;'>本日の予定はありません。</p>";
-            el.innerHTML = ps.map(p => `
-                <div class="card" style="border-left:8px solid var(--accent); padding:15px; cursor:pointer;" onclick="startRun(${p.id})">
-                    <b>${p.period} : ${p.className}</b>
-                    <div style="font-size:0.8rem; margin-top:5px; color:#777;">${p.aiPoints[0] || '評価項目未生成'}</div>
-                </div>`).join('');
+        const todayPlans = state.plans.filter(p => p.month === tMonth && p.day === tDay);
+        const futurePlans = state.plans.filter(p => (p.month > tMonth) || (p.month === tMonth && p.day > tDay));
+
+        const renderItem = (p) => {
+            const period = state.periodSettings.find(s => s.id === p.periodId);
+            const layout = state.seatLayouts.find(l => l.id === p.layoutId);
+            return `
+                <div class="card cursor-pointer hover:bg-green-50 transition" onclick="startEvaluation(${p.id})">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">${period?.label || ''} (${period?.start || ''}〜)</span>
+                            <h3 class="font-bold mt-2">${layout?.name || 'クラス未設定'}</h3>
+                            <p class="text-xs text-gray-500 line-clamp-2 mt-1">${p.criteria}</p>
+                        </div>
+                        <div class="text-accent-green">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </div>
+                    </div>
+                </div>
+            `;
         };
-        drawList(todayPlans, 'today-schedule-list');
-        drawList(futurePlans, 'future-schedule-list');
+
+        container.innerHTML = todayPlans.length ? todayPlans.map(renderItem).join('') : '<p class="text-gray-400 text-center">本日の予定はありません</p>';
+        futureContainer.innerHTML = futurePlans.map(renderItem).join('');
     }
 
-    // --- Lesson Run ---
-    let currentRun = null;
-    function startRun(id) {
-        currentRun = appState.plans.find(x => x.id === id);
-        const cls = appState.classes.find(c => c.name === currentRun.className);
-        if(!cls) return alert("クラスが見つかりません。");
-        switchView('lesson-run');
-        document.getElementById('run-header-info').innerHTML = `<h3>${currentRun.className} - ${currentRun.period}</h3><div style="font-size:0.85rem; color:#444;">${currentRun.aiPoints.join(' / ')}</div>`;
-        const grid = document.getElementById('run-grid');
-        grid.style.gridTemplateColumns = `repeat(${cls.cols}, 1fr)`;
-        grid.innerHTML = Array.from({length: cls.rows * cls.cols}).map((_, i) => {
-            const name = cls.students[i] || '';
-            return `<div class="seat" onclick="openEval(${i+1}, '${name || '番号'+(i+1)}')"><b>${name || '-'}</b><span>${i+1}</span></div>`;
+    function renderPlansList() {
+        const container = document.getElementById('plans-list-container');
+        const tabContainer = document.getElementById('class-tabs');
+        
+        // クラス(座席表名)ごとにタブ分け
+        const classNames = [...new Set(state.seatLayouts.map(l => l.name))];
+        tabContainer.innerHTML = `<button class="btn btn-outline py-1 px-3 text-xs" onclick="filterPlansByClass('all')">すべて</button>` + 
+            classNames.map(cn => `<button class="btn btn-outline py-1 px-3 text-xs" onclick="filterPlansByClass('${cn}')">${cn}</button>`).join('');
+
+        filterPlansByClass('all');
+    }
+
+    function filterPlansByClass(className) {
+        const container = document.getElementById('plans-list-container');
+        let filtered = state.plans;
+        if(className !== 'all') {
+            const layoutIds = state.seatLayouts.filter(l => l.name === className).map(l => l.id);
+            filtered = state.plans.filter(p => layoutIds.includes(p.layoutId));
+        }
+
+        container.innerHTML = filtered.sort((a,b) => (a.month*100+a.day) - (b.month*100+b.day)).map(p => {
+            const period = state.periodSettings.find(s => s.id === p.periodId);
+            const layout = state.seatLayouts.find(l => l.id === p.layoutId);
+            return `
+                <div class="bg-white p-4 rounded-xl border-l-4 border-green-300 flex justify-between items-center shadow-sm">
+                    <div>
+                        <p class="text-xs font-bold text-gray-400">${p.month}/${p.day} ${period?.label}</p>
+                        <p class="font-bold">${layout?.name || ''}</p>
+                        <p class="text-xs text-gray-500">${p.criteria.substring(0,20)}...</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="text-xs bg-blue-50 text-blue-600 p-2 rounded" onclick="editPlan(${p.id})">変更</button>
+                        <button class="text-xs bg-red-50 text-red-600 p-2 rounded" onclick="deletePlan(${p.id})">削除</button>
+                    </div>
+                </div>
+            `;
         }).join('');
     }
 
-    let targetIdx = null;
-    function openEval(idx, name) {
-        targetIdx = idx;
-        document.getElementById('eval-st-name').innerText = name;
-        document.getElementById('eval-target').innerText = "重点: " + (currentRun.aiPoints[0] || "未設定");
-        document.getElementById('eval-btns').innerHTML = appState.actions.map(a => `<button class="action-btn" style="background:${a.type==='good'?'var(--good)':'var(--bad)'}" onclick="record('${a.text}')">${a.text}</button>`).join('');
-        document.getElementById('eval-modal-overlay').style.display = 'flex';
-    }
-    function closeModal() { document.getElementById('eval-modal-overlay').style.display = 'none'; }
-    function record(act) {
-        appState.evaluations.push({ time: new Date().toLocaleString(), d: currentRun.date, p: currentRun.period, c: currentRun.className, s: targetIdx, a: act });
-        save(); closeModal();
+    // --- 評価モード ---
+    let currentPlan = null;
+    function startEvaluation(planId) {
+        currentPlan = state.plans.find(p => p.id === planId);
+        if(!currentPlan) return;
+
+        const layout = state.seatLayouts.find(l => l.id === currentPlan.layoutId);
+        if(!layout) return alert("座席表データが見つかりません");
+
+        document.getElementById('eval-header').innerText = `${currentPlan.month}/${currentPlan.day} - ${layout.name}`;
+        document.getElementById('eval-points-display').innerHTML = currentPlan.observationHtml || "（観察ポイント未生成）";
+        
+        renderEvaluationGrid(layout);
+        navigate('evaluate');
     }
 
-    // --- Settings UI ---
-    function renderSettings() {
-        const pe = document.getElementById('period-editor');
-        pe.innerHTML = appState.periods.map((p,i) => `
-            <div style="display:flex; gap:5px; margin-bottom:5px">
-                <input type="text" value="${p.name}" onchange="appState.periods[${i}].name=this.value;save()">
-                <button onclick="appState.periods.splice(${i},1);save();renderSettings()">✕</button>
-            </div>`).join('');
-        const ae = document.getElementById('action-editor');
-        ae.innerHTML = appState.actions.map((a,i) => `
-            <div style="display:flex; gap:5px; margin-bottom:5px">
-                <input type="text" value="${a.text}" onchange="appState.actions[${i}].text=this.value;save()">
-                <button onclick="appState.actions.splice(${i},1);save();renderSettings()">✕</button>
-            </div>`).join('');
-    }
-    
-    function addEntry(k) {
-        if(k==='periods') appState.periods.push({id:Date.now(), name:"新校時", start:"00:00"});
-        if(k==='actions') appState.actions.push({id:Date.now(), text:"新行動", type:"good"});
-        save(); renderSettings();
+    function renderEvaluationGrid(layout) {
+        const container = document.getElementById('eval-seat-grid');
+        container.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = `repeat(${layout.cols}, 85px)`;
+        grid.style.gap = '10px';
+
+        for (let i = 0; i < layout.rows * layout.cols; i++) {
+            const name = layout.names[i];
+            const seat = document.createElement('div');
+            seat.className = `seat ${!name ? 'empty' : ''}`;
+            if(name) {
+                const count = state.evaluations.filter(e => e.planId === currentPlan.id && e.studentName === name).length;
+                seat.innerHTML = `
+                    <span class="font-bold">${name}</span>
+                    ${count > 0 ? `<span class="absolute -top-2 -right-2 bg-accent-green text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">${count}</span>` : ''}
+                `;
+                seat.onclick = () => openActionModal(name);
+            } else {
+                seat.innerHTML = `<span class="text-gray-300">席</span>`;
+            }
+            grid.appendChild(seat);
+        }
+        container.appendChild(grid);
     }
 
-    window.onload = load;
+    function openActionModal(studentName) {
+        document.getElementById('modal-student-name').innerText = studentName;
+        const posContainer = document.getElementById('modal-pos-actions');
+        const negContainer = document.getElementById('modal-neg-actions');
+
+        posContainer.innerHTML = state.actions.positive.map(act => `
+            <button class="text-xs p-3 bg-green-50 text-green-700 rounded-lg border border-green-200 hover:bg-green-100" onclick="recordEvaluation('${studentName}', '${act}', 'positive')">${act}</button>
+        `).join('');
+
+        negContainer.innerHTML = state.actions.negative.map(act => `
+            <button class="text-xs p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 hover:bg-red-100" onclick="recordEvaluation('${studentName}', '${act}', 'negative')">${act}</button>
+        `).join('');
+
+        document.getElementById('action-modal').style.display = 'flex';
+    }
+
+    function recordEvaluation(studentName, action, type) {
+        state.evaluations.push({
+            planId: currentPlan.id,
+            studentName,
+            action,
+            type,
+            timestamp: new Date().toISOString()
+        });
+        saveToStorage();
+        closeModal();
+        const layout = state.seatLayouts.find(l => l.id === currentPlan.layoutId);
+        renderEvaluationGrid(layout);
+    }
+
+    function closeModal() {
+        document.getElementById('action-modal').style.display = 'none';
+    }
+
+    // --- CSV出力 ---
+    function exportEvaluationHistory() {
+        if(state.evaluations.length === 0) return alert("記録がありません");
+
+        let csv = "\uFEFF日時,学年クラス,生徒名,行動,評価タイプ,評価基準\n";
+        
+        state.evaluations.forEach(e => {
+            const plan = state.plans.find(p => p.id === e.planId);
+            const layout = state.seatLayouts.find(l => l.id === plan?.layoutId);
+            const date = new Date(e.timestamp).toLocaleString('ja-JP');
+            csv += `${date},${layout?.name || ''},${e.studentName},${e.action},${e.type},"${plan?.criteria.replace(/"/g, '""')}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", `評価記録_${new Date().toLocaleDateString()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // --- 設定画面のレンダリング ---
+    function renderPeriodSettings() {
+        const container = document.getElementById('period-settings-list');
+        const select = document.getElementById('plan-period');
+        container.innerHTML = state.periodSettings.map((s, idx) => `
+            <div class="flex gap-2 items-center">
+                <input type="text" value="${s.label}" class="p-1 border rounded text-sm w-24" onchange="updatePeriod(${idx}, 'label', this.value)">
+                <input type="time" value="${s.start}" class="p-1 border rounded text-sm" onchange="updatePeriod(${idx}, 'start', this.value)">
+                <span>〜</span>
+                <input type="time" value="${s.end}" class="p-1 border rounded text-sm" onchange="updatePeriod(${idx}, 'end', this.value)">
+                <button class="text-red-500 text-xs" onclick="deletePeriod(${idx})">×</button>
+            </div>
+        `).join('');
+        
+        select.innerHTML = state.periodSettings.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+    }
+
+    function updatePeriod(idx, key, val) {
+        state.periodSettings[idx][key] = val;
+        saveToStorage();
+        renderPeriodSettings();
+    }
+
+    function addPeriodSetting() {
+        const id = Date.now();
+        state.periodSettings.push({ id, label: '新時間目', start: '00:00', end: '00:00' });
+        saveToStorage();
+        renderPeriodSettings();
+    }
+
+    function deletePeriod(idx) {
+        state.periodSettings.splice(idx, 1);
+        saveToStorage();
+        renderPeriodSettings();
+    }
+
+    function renderActionSettings() {
+        const pos = document.getElementById('positive-actions');
+        const neg = document.getElementById('negative-actions');
+        
+        pos.innerHTML = state.actions.positive.map((act, idx) => `
+            <div class="flex gap-1"><input value="${act}" class="flex-1 p-1 border text-xs" onchange="state.actions.positive[${idx}]=this.value;saveToStorage()">
+            <button onclick="state.actions.positive.splice(${idx},1);saveToStorage();renderActionSettings()" class="text-red-400">×</button></div>
+        `).join('');
+        
+        neg.innerHTML = state.actions.negative.map((act, idx) => `
+            <div class="flex gap-1"><input value="${act}" class="flex-1 p-1 border text-xs" onchange="state.actions.negative[${idx}]=this.value;saveToStorage()">
+            <button onclick="state.actions.negative.splice(${idx},1);saveToStorage();renderActionSettings()" class="text-red-400">×</button></div>
+        `).join('');
+    }
+
+    function addAction(type) {
+        state.actions[type].push("新しい行動");
+        saveToStorage();
+        renderActionSettings();
+    }
+
+    function renderLayoutOptions() {
+        const select = document.getElementById('plan-layout');
+        select.innerHTML = '<option value="">選択してください</option>' + 
+            state.seatLayouts.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+    }
+
+    // 起動
+    window.onload = loadFromStorage;
+
 </script>
 </body>
 </html>
