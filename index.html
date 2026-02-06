@@ -64,10 +64,13 @@
 
         h2, h3 { color: var(--dark-green); margin-top: 0; }
 
+        label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.9rem; color: #666; }
+
         input, select, textarea {
-            width: 100%; padding: 12px; margin: 10px 0;
+            width: 100%; padding: 12px; margin: 8px 0;
             border: 2px solid var(--primary);
             border-radius: 10px; font-size: 1rem; box-sizing: border-box;
+            background: white;
         }
 
         .btn {
@@ -82,7 +85,6 @@
         .btn:hover { filter: brightness(0.9); transform: translateY(-1px); }
         .btn-outline { background: transparent; border: 2px solid var(--accent); color: var(--dark-green); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; }
 
-        /* Tabs */
         .tabs {
             display: flex; gap: 10px; overflow-x: auto;
             margin-bottom: 20px; padding-bottom: 5px;
@@ -175,15 +177,16 @@
             <label>クラス選択</label>
             <select id="plan-class-select"></select>
 
-            <label>評価基準（コピペ）</label>
-            <textarea id="raw-criteria" placeholder="教科書の目標など"></textarea>
+            <label>評価基準（教科書の目標など）</label>
+            <textarea id="raw-criteria" placeholder="教科書の目標を貼り付けてください"></textarea>
             <button class="btn" id="ai-gen-btn" onclick="processAI()">AI観察ポイント生成</button>
 
             <div id="ai-section" class="ai-container hidden">
                 <h3>AI抽出ポイント</h3>
                 <div id="ai-output" style="font-weight: bold; margin-bottom: 10px; white-space: pre-wrap;"></div>
                 <div id="ai-keywords"></div>
-                <input type="text" id="teacher-plus" placeholder="追加要望など">
+                <label>追加要望</label>
+                <input type="text" id="teacher-plus" placeholder="もっと具体的に、など">
                 <button class="btn btn-outline" style="width: 100%;" onclick="processAI(true)">再構成する</button>
             </div>
 
@@ -215,10 +218,10 @@
             </div>
             <label>生徒名簿（改行区切りで入力）</label>
             <textarea id="cls-students" placeholder="名前を1行ずつ入力してください" oninput="updatePreview()"></textarea>
-            <p style="font-size: 0.8rem; color: #666;">※ プレビュー内で名前をドラッグして位置を入れ替えられます。</p>
 
             <div id="preview-area" class="hidden">
                 <h3 style="margin-top: 15px;">座席プレビュー</h3>
+                <p style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">※ 名前をドラッグして位置を入れ替えられます。</p>
                 <div id="preview-grid" class="seating-grid"></div>
             </div>
 
@@ -296,23 +299,18 @@
 
     function updateClock() {
         const now = new Date();
-        document.getElementById('digital-clock').innerText = now.toLocaleTimeString('ja-JP');
-        const todayStr = now.toISOString().split('T')[0];
-        if(window.lastDateChecked && window.lastDateChecked !== todayStr) { renderHome(); }
-        window.lastDateChecked = todayStr;
+        const el = document.getElementById('digital-clock');
+        if(el) el.innerText = now.toLocaleTimeString('ja-JP');
     }
 
     function switchView(id) {
-        // 現在表示されている要素を非表示にする（状態はDOMに残るので入力内容は消えない）
         document.querySelectorAll('.page-view').forEach(v => v.classList.add('hidden'));
         document.getElementById(`view-${id}`).classList.remove('hidden');
         
-        // ナビのアクティブ状態更新
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         const navMap = {home:0, list:1, 'seating-list':2, settings:3};
         if(navMap[id] !== undefined) document.querySelectorAll('.nav-item')[navMap[id]].classList.add('active');
 
-        // ヘッダータイトル更新
         const titleMap = {
             home:'ホーム', list:'授業計画一覧', plan:'授業計画編集', 
             'seating-list':'クラス一覧', 'seating-edit':'座席表編集', 
@@ -320,14 +318,40 @@
         };
         document.getElementById('header-title').innerText = titleMap[id] || 'Teacher Support';
 
-        // 各ビューの描画
         if(id === 'home') renderHome();
         if(id === 'list') renderPlanTabs();
+        if(id === 'plan') renderPlanForm(); // 選択肢を最新に更新
         if(id === 'seating-list') renderClassList();
         if(id === 'settings') renderSettings();
     }
 
-    // --- Seating Logic (Drag & Drop) ---
+    // --- Plan Form Select Logic (FIXED) ---
+    function renderPlanForm() {
+        const periodSelect = document.getElementById('plan-period');
+        const classSelect = document.getElementById('plan-class-select');
+
+        // 校時の選択肢を生成
+        periodSelect.innerHTML = appState.periods.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        
+        // クラスの選択肢を生成
+        if(appState.classes.length === 0) {
+            classSelect.innerHTML = `<option value="">※ クラスを先に登録してください</option>`;
+        } else {
+            classSelect.innerHTML = appState.classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        }
+
+        // 編集中の場合は値を復元
+        if(appState.editingPlanId) {
+            const p = appState.plans.find(x => x.id === appState.editingPlanId);
+            if(p) {
+                document.getElementById('plan-date').value = p.date;
+                periodSelect.value = p.period;
+                classSelect.value = p.className;
+            }
+        }
+    }
+
+    // --- Seating Logic ---
     function updatePreview() {
         const r = parseInt(document.getElementById('cls-rows').value) || 0;
         const c = parseInt(document.getElementById('cls-cols').value) || 0;
@@ -352,7 +376,6 @@
                 const name = names[i] || '';
                 seat.innerHTML = `<b>${name || '-'}</b><span>${i+1}</span>`;
 
-                // Drag Events
                 seat.ondragstart = (e) => {
                     e.dataTransfer.setData('text/plain', i);
                     seat.classList.add('dragging');
@@ -366,7 +389,6 @@
                     const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
                     swapStudents(fromIndex, i);
                 };
-
                 grid.appendChild(seat);
             }
         }
@@ -374,7 +396,6 @@
 
     function swapStudents(from, to) {
         const students = document.getElementById('cls-students').value.split('\n');
-        // 配列の長さを座席数に合わせる
         const r = parseInt(document.getElementById('cls-rows').value);
         const c = parseInt(document.getElementById('cls-cols').value);
         const total = r * c;
@@ -453,7 +474,7 @@
         }
     }
 
-    // --- AI & Plan Logic ---
+    // --- AI Logic ---
     async function processAI(isRedo = false) {
         const raw = document.getElementById('raw-criteria').value;
         const plus = document.getElementById('teacher-plus').value;
@@ -478,21 +499,13 @@
                 document.getElementById('ai-keywords').innerHTML = kws.map(k => `<span class="keyword-tag" onclick="this.classList.toggle('selected'); toggleKw('${k}')">${k}</span>`).join('');
             }
             document.getElementById('ai-section').classList.remove('hidden');
-        } catch(e) { alert("AIエラー"); }
+        } catch(e) { alert("AIエラーが発生しました。"); }
         finally { btn.innerText="AI観察ポイント生成"; btn.disabled=false; }
     }
 
     function toggleKw(k) {
         if(appState.selectedKeywords.includes(k)) appState.selectedKeywords = appState.selectedKeywords.filter(x => x!==k);
         else appState.selectedKeywords.push(k);
-    }
-
-    function renderPlanForm() {
-        document.getElementById('plan-period').innerHTML = appState.periods.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-        document.getElementById('plan-class-select').innerHTML = appState.classes.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-        if(!appState.editingPlanId && !document.getElementById('plan-date').value) {
-            document.getElementById('plan-date').valueAsDate = new Date();
-        }
     }
 
     function prepareNewPlan() {
@@ -512,7 +525,8 @@
         const p = document.getElementById('plan-period').value;
         const c = document.getElementById('plan-class-select').value;
         const ai = document.getElementById('ai-output').innerText;
-        if(!d || !ai) return alert("入力不足です（AIポイントを生成してください）");
+        
+        if(!d || !ai || !c) return alert("必須項目（日付、クラス、AI生成内容）が不足しています。");
 
         const plan = { 
             id: appState.editingPlanId || Date.now(), 
@@ -548,7 +562,7 @@
         filtered.sort((a,b) => b.date.localeCompare(a.date));
         const list = document.getElementById('all-plans-list');
         if(filtered.length === 0) {
-            list.innerHTML = "<p style='color:#999; text-align:center;'>表示できる授業計画がありません。</p>";
+            list.innerHTML = "<p style='color:#999; text-align:center; padding:20px;'>表示できる授業計画がありません。</p>";
             return;
         }
         list.innerHTML = filtered.map(p => `
@@ -568,16 +582,15 @@
     }
 
     function editPlan(id) {
-        const p = appState.plans.find(x => x.id === id);
         appState.editingPlanId = id;
-        document.getElementById('plan-form-title').innerText = "授業計画の修正";
-        document.getElementById('plan-date').value = p.date;
-        document.getElementById('plan-period').value = p.period;
-        document.getElementById('plan-class-select').value = p.className;
-        document.getElementById('raw-criteria').value = p.raw || "";
-        document.getElementById('ai-output').innerText = p.aiPoints.join('\n');
-        document.getElementById('ai-section').classList.remove('hidden');
         switchView('plan');
+        const p = appState.plans.find(x => x.id === id);
+        if(p) {
+            document.getElementById('plan-form-title').innerText = "授業計画の修正";
+            document.getElementById('raw-criteria').value = p.raw || "";
+            document.getElementById('ai-output').innerText = p.aiPoints.join('\n');
+            document.getElementById('ai-section').classList.remove('hidden');
+        }
     }
 
     function deletePlan(id) {
@@ -589,10 +602,12 @@
 
     // --- Home Display ---
     function renderHome() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('home-today-date').innerText = new Date().toLocaleDateString('ja-JP', {month:'long', day:'numeric', weekday:'long'});
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        document.getElementById('home-today-date').innerText = now.toLocaleDateString('ja-JP', {month:'long', day:'numeric', weekday:'long'});
+        
         const todayPlans = appState.plans.filter(p => p.date === today).sort((a,b) => a.period.localeCompare(b.period));
-        const futurePlans = appState.plans.filter(p => p.date > today).sort((a,b) => a.date.localeCompare(b.date));
+        const futurePlans = appState.plans.filter(p => p.date > today).sort((a,b) => a.date.localeCompare(b.date) || a.period.localeCompare(b.period));
 
         const draw = (ps, elId) => {
             const el = document.getElementById(elId);
@@ -603,7 +618,7 @@
                         <b>${p.period} : ${p.className}</b>
                         <span style="color:var(--accent); font-size:0.8rem;">評価開始 ＞</span>
                     </div>
-                    <div style="font-size:0.8rem; margin-top:5px; color:#777;">目標: ${p.aiPoints[0]}...</div>
+                    <div style="font-size:0.8rem; margin-top:5px; color:#777;">${p.aiPoints[0]}...</div>
                 </div>
             `).join('');
         };
