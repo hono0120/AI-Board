@@ -3,1038 +3,882 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>パステル・ティーチャー・ログ Pro</title>
+    <title>AI-Board - 授業評価管理システム</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --pastel-green: #f1f8e9;
-            --light-green: #dcedc8;
-            --accent-green: #81c784;
-            --text-main: #33691e;
-        }
-        body {
-            background-color: var(--pastel-green);
-            color: var(--text-main);
-            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-            margin: 0;
-            padding-bottom: 100px;
-            min-height: 100vh;
-        }
-        /* 大画面対応 */
-        .max-w-custom { max-width: 1200px; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
         
-        .card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-            padding: 30px;
-            margin-bottom: 24px;
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --bg-main: #f8fafc;
         }
-        .tab-bar {
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-main);
+            color: #1e293b;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 100px;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* 座席表エリア：1画面に収めるためのコンテナ */
+        .seat-area {
+            position: relative;
+            background: #ffffff;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+            border-radius: 12px;
+            height: 500px; /* 固定高さで画面内に収める */
+            width: 100%;
+            border: 2px solid #e2e8f0;
+            overflow: hidden; /* はみ出し禁止 */
+        }
+
+        .seat {
+            width: 80px;
+            height: 55px;
+            background: white;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            position: absolute;
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            user-select: none;
+            z-index: 10;
+            transition: box-shadow 0.2s, transform 0.2s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 2px;
+        }
+
+        .seat:active {
+            cursor: grabbing;
+            transform: scale(1.05);
+            z-index: 100;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .bottom-nav {
             position: fixed;
-            bottom: 0; left: 0; right: 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            bottom: 0;
+            width: 100%;
+            height: 75px;
+            background: white;
             display: flex;
             justify-content: space-around;
-            padding: 15px 0;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.05);
-            z-index: 1000;
+            align-items: center;
+            border-top: 1px solid #e2e8f0;
+            z-index: 100;
         }
-        .tab-item {
+
+        .nav-item {
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            font-size: 11px;
-            color: #777;
+            color: #94a3b8;
+            font-size: 0.7rem;
             cursor: pointer;
-            transition: color 0.3s;
         }
-        .tab-item.active { color: var(--accent-green); font-weight: bold; }
-        
-        .btn {
-            background-color: var(--light-green);
-            color: var(--text-main);
-            padding: 12px 24px;
-            border-radius: 30px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: bold;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+
+        .nav-item.active {
+            color: var(--primary);
         }
-        .btn:hover { background-color: var(--accent-green); color: white; transform: translateY(-1px); }
-        .btn-outline { border: 2px solid var(--light-green); background: transparent; }
-        
-        .seat {
-            width: 100px;
-            height: 75px;
-            border: 2px solid var(--light-green);
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            cursor: pointer;
-            position: relative;
+
+        .nav-item svg {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 2px;
+        }
+
+        .card {
             background: white;
-            transition: all 0.2s;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
         }
-        .seat.empty { background-color: #f9f9f9; border-color: #eee; color: #ccc; }
-        .seat:hover { border-color: var(--accent-green); background: var(--pastel-green); }
-        
-        .time-display {
-            position: fixed;
-            top: 15px; right: 25px;
-            font-weight: bold;
-            font-size: 16px;
-            background: white;
-            padding: 8px 20px;
-            border-radius: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            z-index: 1100;
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
         }
-        .keyword-chip {
-            display: inline-block;
-            padding: 6px 14px;
-            margin: 4px;
-            border-radius: 20px;
-            background: #f0f4f0;
-            cursor: pointer;
-            font-size: 14px;
-            border: 1px solid transparent;
-        }
-        .keyword-chip.selected {
-            background: var(--accent-green);
-            color: white;
-            border-color: var(--accent-green);
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 3000;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 25px;
-            width: 90%;
-            max-width: 600px;
-        }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: var(--light-green); border-radius: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-<div id="currentTime" class="time-display"></div>
+<div class="app-container">
+    <!-- Header -->
+    <header class="bg-white border-b px-6 py-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-emerald-500 rounded-lg text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
+            <h1 class="text-2xl font-black text-emerald-600 tracking-tighter">AI-Board</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <span id="digital-clock" class="font-mono font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">00:00:00</span>
+            <button onclick="switchTab('settings')" class="p-2 hover:bg-gray-100 rounded-full transition text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+        </div>
+    </header>
 
-<div id="app" class="max-w-custom mx-auto p-6 pt-16">
-    
-    <!-- HOME -->
-    <div id="section-home" class="section">
-        <h1 class="text-3xl font-bold mb-8">授業ログ・ダッシュボード</h1>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2">
-                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                    <span class="w-2 h-6 bg-green-400 rounded-full"></span>本日の授業予定
-                </h2>
-                <div id="today-plans" class="space-y-4"></div>
-                
-                <h2 class="text-xl font-bold mt-12 mb-4 flex items-center gap-2">
-                    <span class="w-2 h-6 bg-gray-300 rounded-full"></span>今後の予定
-                </h2>
-                <div id="future-plans" class="space-y-4"></div>
+    <main class="main-content">
+        <!-- Home -->
+        <section id="content-home" class="tab-content active">
+            <div class="mb-8">
+                <h2 class="text-xl font-bold mb-4">本日の授業</h2>
+                <div id="today-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
             <div>
-                <div class="card bg-gradient-to-br from-white to-green-50">
-                    <h3 class="font-bold mb-4">AIステータス</h3>
-                    <p class="text-xs text-gray-500 mb-4">AI機能が反応しない場合は、以下のボタンで接続をリフレッシュしてください。</p>
-                    <button class="btn btn-outline w-full text-sm" onclick="refreshAIConnection()">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                        AI接続リフレッシュ
-                    </button>
-                    <div id="ai-debug-info" class="mt-2 text-[10px] text-gray-400 hidden">API Key is ready.</div>
+                <h2 class="text-xl font-bold mb-4">今後のスケジュール</h2>
+                <div id="upcoming-list" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- Plan -->
+        <section id="content-plan" class="tab-content">
+            <div class="card space-y-6">
+                <h2 class="text-xl font-bold">新規授業計画</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 block mb-1">実施日</label>
+                        <input type="date" id="plan-date" class="w-full border p-3 rounded-xl">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 block mb-1">時限</label>
+                        <select id="plan-period" class="w-full border p-3 rounded-xl bg-white"></select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 block mb-1">クラス名</label>
+                        <input type="text" id="plan-class" placeholder="例: 1年A組" class="w-full border p-3 rounded-xl">
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- PLAN -->
-    <div id="section-plan" class="section hidden">
-        <h1 class="text-3xl font-bold mb-8">授業計画・評価基準の登録</h1>
-        <div class="card">
-            <div class="mb-6">
-                <label class="block mb-3 font-bold text-lg">教科書の評価基準（貼り付け）</label>
-                <textarea id="raw-criteria" class="w-full h-48 p-4 border-2 border-gray-100 rounded-2xl focus:border-green-300 outline-none transition-all text-lg" placeholder="例：ある数が方程式の解であるかどうかを判断する方法を考え、説明することができる。"></textarea>
-            </div>
-            
-            <div class="flex gap-4 mb-8">
-                <button id="btn-generate" class="btn shadow-md" onclick="generateObservationPoints()">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 110-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clip-rule="evenodd" /></svg>
-                    AIで観察ポイントを抽出
-                </button>
-            </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-400 block mb-1">使用する座席表</label>
+                    <select id="plan-seating" class="w-full border p-3 rounded-xl bg-white"></select>
+                </div>
 
-            <div id="ai-output-area" class="hidden animate-fade-in">
-                <div class="p-6 bg-green-50 border-2 border-green-100 rounded-2xl mb-8">
+                <div>
+                    <label class="text-xs font-bold text-gray-400 block mb-1">作成した評価基準（貼り付けてください）</label>
+                    <textarea id="plan-raw-criteria" rows="4" class="w-full border p-4 rounded-xl text-sm" placeholder="作成した評価基準や、授業のねらいを入力してください..."></textarea>
+                </div>
+
+                <div class="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-green-800">AI抽出：授業中の観察ポイント目安</h3>
-                        <button class="text-xs text-green-600 font-bold hover:underline" onclick="generateObservationPoints()">再生成</button>
+                        <h3 class="font-bold text-emerald-800 flex items-center gap-2">AIポイント生成</h3>
+                        <button onclick="generateAIPoints()" id="btn-ai" class="bg-emerald-600 text-white px-6 py-2 rounded-full font-bold hover:bg-emerald-700 transition">生成する</button>
                     </div>
-                    <ul id="observation-list" class="space-y-3 mb-6 text-lg"></ul>
-                    
-                    <div class="border-t border-green-200 pt-6">
-                        <p class="text-sm font-bold text-green-700 mb-3">キーワードの調整・追加</p>
-                        <div id="extracted-keywords" class="flex flex-wrap mb-4"></div>
-                        <div class="flex gap-2">
-                            <input type="text" id="manual-keyword" class="flex-1 p-3 border rounded-xl" placeholder="先生が特に注目したいポイントを入力...">
-                            <button class="btn btn-outline" onclick="regenerateObservationPoints()">
-                                キーワードを反映して再作成
-                            </button>
+                    <div id="ai-loading" class="hidden py-4 flex justify-center"><div class="spinner"></div></div>
+                    <div id="ai-result-area" class="hidden space-y-4">
+                        <div id="ai-points-container" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4">
+                    <button onclick="savePlan()" class="bg-emerald-600 text-white px-10 py-3 rounded-xl font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition">この計画を保存</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Library -->
+        <section id="content-library" class="tab-content">
+            <h2 class="text-xl font-bold mb-6 text-gray-700">授業ライブラリ</h2>
+            <div id="library-list" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </section>
+
+        <!-- Start -->
+        <section id="content-start" class="tab-content">
+            <h2 class="text-xl font-bold mb-6">授業を開始する</h2>
+            <div id="ready-lesson-list" class="space-y-4"></div>
+        </section>
+
+        <!-- Seating Config -->
+        <section id="content-seating" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="card">
+                        <h2 class="text-lg font-bold mb-4">座席表作成</h2>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="text-xs font-bold text-gray-400">クラス名</label>
+                                <input type="text" id="seat-config-name" class="w-full border p-2 rounded-lg">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs font-bold text-gray-400">列（横）</label>
+                                    <input type="number" id="seat-config-cols" value="6" oninput="initSeatPreview()" class="w-full border p-2 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-gray-400">行（縦）</label>
+                                    <input type="number" id="seat-config-rows" value="5" oninput="initSeatPreview()" class="w-full border p-2 rounded-lg">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-gray-400">生徒名（改行区切り）</label>
+                                <textarea id="seat-config-names" rows="8" oninput="initSeatPreview()" class="w-full border p-2 rounded-lg text-sm" placeholder="佐藤&#10;鈴木&#10;高橋..."></textarea>
+                            </div>
+                            <button onclick="saveSeatingData()" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition">座席表を保存</button>
+                        </div>
+                    </div>
+                    <div id="saved-seatings" class="space-y-2"></div>
+                </div>
+                <div class="lg:col-span-8">
+                    <div class="card bg-gray-50 flex flex-col h-[650px]">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold">配置プレビュー</h3>
+                            <p class="text-xs text-gray-500">ドラッグして位置を調整。枠内に収まるよう自動調整されます。</p>
+                        </div>
+                        <div id="seat-preview-container" class="seat-area flex-1"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings -->
+        <section id="content-settings" class="tab-content">
+            <div class="card">
+                <h2 class="text-xl font-bold mb-6">各種設定</h2>
+                <div class="space-y-8">
+                    <div>
+                        <h3 class="font-bold text-emerald-600 mb-3 border-b pb-2">時間割設定</h3>
+                        <div id="settings-periods" class="space-y-2"></div>
+                        <button onclick="addPeriodSetting()" class="mt-2 text-emerald-600 text-sm font-bold">+ 枠を追加</button>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-emerald-600 mb-3 border-b pb-2">評価項目設定</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="text-sm font-bold block mb-2 text-emerald-600">ポジティブ項目</label>
+                                <div id="settings-good" class="space-y-2 mb-2"></div>
+                                <div class="flex gap-2">
+                                    <input type="text" id="add-good-input" class="flex-1 border p-2 rounded-lg text-sm">
+                                    <button onclick="addEvalItem('good')" class="bg-emerald-100 text-emerald-700 px-3 rounded-lg font-bold">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-sm font-bold block mb-2 text-red-500">課題・改善項目</label>
+                                <div id="settings-bad" class="space-y-2 mb-2"></div>
+                                <div class="flex gap-2">
+                                    <input type="text" id="add-bad-input" class="flex-1 border p-2 rounded-lg text-sm">
+                                    <button onclick="addEvalItem('bad')" class="bg-red-100 text-red-700 px-3 rounded-lg font-bold">+</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </section>
+    </main>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 bg-gray-50 rounded-2xl">
+    <!-- Active Lesson Overlay -->
+    <div id="active-lesson-overlay" class="fixed inset-0 bg-white z-[200] hidden flex flex-col">
+        <header class="bg-emerald-800 text-white p-4 flex justify-between items-center">
+            <div class="flex items-center gap-6">
                 <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">実施月</label>
-                    <select id="plan-month" class="w-full p-3 border rounded-xl bg-white"></select>
+                    <h2 id="live-title" class="text-xl font-bold">1年A組 授業</h2>
+                    <p id="live-meta" class="text-xs text-emerald-300">2024-05-12 / 2時間目</p>
+                </div>
+                <div id="live-points" class="flex gap-2"></div>
+            </div>
+            <button onclick="finishLesson()" class="bg-red-500 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-red-600">授業を終了</button>
+        </header>
+        <div class="flex-1 flex overflow-hidden">
+            <div id="live-seat-area" class="flex-[3] relative bg-slate-100 overflow-hidden p-8"></div>
+            <div class="w-80 border-l flex flex-col bg-white">
+                <div class="p-4 font-bold border-b bg-gray-50">評価ログ</div>
+                <div id="live-logs" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Evaluation Modal -->
+    <div id="eval-modal" class="fixed inset-0 bg-black/60 z-[300] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div class="p-6 bg-emerald-50 border-b flex justify-between items-center">
+                <h3 id="modal-student-name" class="text-xl font-bold text-emerald-800">生徒名</h3>
+                <button onclick="closeEvalModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <p class="text-xs font-bold text-emerald-600 mb-3 uppercase tracking-widest">ポジティブ</p>
+                    <div id="modal-good-btns" class="grid grid-cols-2 gap-2"></div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">実施日</label>
-                    <select id="plan-day" class="w-full p-3 border rounded-xl bg-white"></select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">時間割</label>
-                    <select id="plan-period" class="w-full p-3 border rounded-xl bg-white"></select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">対象クラス・座席表</label>
-                    <select id="plan-layout" class="w-full p-3 border rounded-xl bg-white"></select>
-                </div>
-            </div>
-            
-            <button class="btn w-full mt-8 py-4 text-xl shadow-lg" onclick="savePlan()">
-                この授業計画を保存する
-            </button>
-        </div>
-    </div>
-
-    <!-- HISTORY (LIST) -->
-    <div id="section-history" class="section hidden">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold">授業計画ライブラリ</h1>
-            <button class="btn" onclick="exportEvaluationHistory()">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                CSVダウンロード (全データ)
-            </button>
-        </div>
-        <div id="class-tabs" class="flex overflow-x-auto gap-3 mb-6 pb-2"></div>
-        <div id="plans-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-    </div>
-
-    <!-- SEATS -->
-    <div id="section-seats" class="section hidden">
-        <h1 class="text-3xl font-bold mb-8">座席表の管理</h1>
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            <div class="card">
-                <h2 class="font-bold mb-6 text-xl">新規作成・基本設定</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-bold mb-1">座席表の名前</label>
-                        <input type="text" id="seat-layout-name" class="w-full p-3 border rounded-xl" placeholder="例：3年B組 数学用">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold mb-1">横の列数</label>
-                            <input type="number" id="seat-cols" class="w-full p-3 border rounded-xl" value="6" oninput="updateSeatPreview()">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-1">縦の行数</label>
-                            <input type="number" id="seat-rows" class="w-full p-3 border rounded-xl" value="5" oninput="updateSeatPreview()">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold mb-1">生徒の総人数</label>
-                        <input type="number" id="seat-total-count" class="w-full p-3 border rounded-xl" value="30">
-                        <p id="seat-total-calc" class="text-[10px] text-gray-400 mt-1"></p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold mb-1">生徒名を入力（改行区切り）</label>
-                        <textarea id="seat-student-names" class="w-full h-48 p-3 text-sm border rounded-xl" placeholder="田中&#10;佐藤&#10;鈴木..." oninput="updateSeatPreview()"></textarea>
-                    </div>
-                    <div class="flex gap-2 mt-6">
-                        <button class="btn flex-1" onclick="saveSeatLayout()">保存・登録</button>
-                        <button class="btn btn-outline" onclick="resetSeatForm()">クリア</button>
-                    </div>
-                </div>
-                
-                <h3 class="font-bold mt-10 mb-4 text-gray-400 uppercase text-xs">保存済みの座席表</h3>
-                <div id="saved-layouts-list" class="space-y-2"></div>
-            </div>
-
-            <div class="xl:col-span-2">
-                <div class="card h-full">
-                    <h2 class="font-bold mb-2 text-xl">座席プレビュー・編集</h2>
-                    <p class="text-sm text-gray-500 mb-6">座席をドラッグして入れ替えることができます。名前は左上から自動配置されます。</p>
-                    <div id="seat-preview-container" class="bg-gray-50 rounded-2xl p-8 flex justify-center items-start min-h-[500px] overflow-auto border-2 border-dashed border-gray-200">
-                        <!-- Preview Grid -->
-                    </div>
+                    <p class="text-xs font-bold text-red-500 mb-3 uppercase tracking-widest">課題・改善</p>
+                    <div id="modal-bad-btns" class="grid grid-cols-2 gap-2"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- SETTINGS -->
-    <div id="section-settings" class="section hidden">
-        <h1 class="text-3xl font-bold mb-8">カスタマイズ設定</h1>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="card">
-                <h3 class="font-bold mb-6 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    時間割（時限）の設定
-                </h3>
-                <div id="period-settings-list" class="space-y-3 mb-6"></div>
-                <button class="btn btn-outline w-full" onclick="addPeriodSetting()">＋ 新しい時限を追加</button>
-            </div>
-            
-            <div class="card">
-                <h3 class="font-bold mb-6 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    評価アクションの編集
-                </h3>
-                <div class="space-y-6">
-                    <div>
-                        <p class="text-sm font-bold text-green-700 mb-3">ポジティブな行動 (+)</p>
-                        <div id="positive-actions" class="space-y-2"></div>
-                        <button class="text-xs text-green-600 mt-2 font-bold" onclick="addAction('positive')">＋ 追加する</button>
-                    </div>
-                    <div class="border-t pt-6">
-                        <p class="text-sm font-bold text-red-700 mb-3">要指導・気になる行動 (-)</p>
-                        <div id="negative-actions" class="space-y-2"></div>
-                        <button class="text-xs text-red-600 mt-2 font-bold" onclick="addAction('negative')">＋ 追加する</button>
-                    </div>
-                </div>
-            </div>
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('home')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span>ホーム</span>
         </div>
-    </div>
-
-    <!-- EVALUATE (RUNNING) -->
-    <div id="section-evaluate" class="section hidden">
-        <div class="flex justify-between items-center mb-6">
-            <button class="btn btn-outline" onclick="navigate('home')">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                ダッシュボードに戻る
-            </button>
-            <div class="text-center">
-                <h2 id="eval-header" class="text-2xl font-bold"></h2>
-                <p id="eval-sub-header" class="text-sm text-gray-500"></p>
-            </div>
-            <button class="btn" onclick="exportEvaluationHistory()">記録を出力</button>
+        <div class="nav-item" onclick="switchTab('plan')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>計画作成</span>
         </div>
-        
-        <div id="eval-criteria-reminder" class="card bg-green-50 border-2 border-green-200 py-6 mb-8">
-            <div class="max-w-3xl mx-auto">
-                <p class="text-xs font-bold text-green-600 mb-2 text-center uppercase tracking-widest">本日の注目ポイント</p>
-                <div id="eval-points-display" class="flex flex-col md:flex-row justify-center gap-6 text-center text-lg font-bold text-green-900"></div>
-            </div>
+        <div class="nav-item" onclick="switchTab('library')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <span>ライブラリ</span>
         </div>
-
-        <div id="eval-seat-grid-container" class="bg-white rounded-3xl p-10 shadow-inner overflow-auto flex justify-center min-h-[600px]">
-            <div id="eval-seat-grid"></div>
+        <div class="nav-item" onclick="switchTab('start')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>授業開始</span>
         </div>
-    </div>
-</div>
-
-<!-- BOTTOM TABS -->
-<div class="tab-bar">
-    <div class="tab-item active" onclick="navigate('home')">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-        <span>ホーム</span>
-    </div>
-    <div class="tab-item" onclick="navigate('plan')">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span>計画作成</span>
-    </div>
-    <div class="tab-item" onclick="navigate('history')">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-        <span>一覧</span>
-    </div>
-    <div class="tab-item" onclick="navigate('seats')">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-        <span>座席表</span>
-    </div>
-    <div class="tab-item" onclick="navigate('settings')">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-        <span>設定</span>
-    </div>
-</div>
-
-<!-- ACTION MODAL -->
-<div id="action-modal" class="modal" onclick="if(event.target==this) closeModal()">
-    <div class="modal-content animate-pop">
-        <div class="flex justify-between items-start mb-6">
-            <div>
-                <h3 id="modal-student-name" class="text-3xl font-bold">生徒名</h3>
-                <p class="text-xs text-gray-400 mt-1">評価アクションを選択してください</p>
-            </div>
-            <button class="text-gray-300 hover:text-gray-600" onclick="closeModal()">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l18 18" /></svg>
-            </button>
+        <div class="nav-item" onclick="switchTab('seating')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>座席表</span>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-                <p class="text-sm font-bold text-green-700 mb-4 border-b-2 border-green-100 pb-2">良い行動 (+)</p>
-                <div id="modal-pos-actions" class="grid grid-cols-1 gap-3"></div>
-            </div>
-            <div>
-                <p class="text-sm font-bold text-red-700 mb-4 border-b-2 border-red-100 pb-2">あまり良くない行動 (-)</p>
-                <div id="modal-neg-actions" class="grid grid-cols-1 gap-3"></div>
-            </div>
-        </div>
-        <button class="btn w-full mt-10 bg-gray-100 text-gray-500 hover:bg-gray-200" onclick="closeModal()">キャンセル</button>
-    </div>
+    </nav>
 </div>
 
 <script>
-    // --- APP STATE ---
-    let apiKey = ""; // Runtime provides this
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'teacher-pro-app';
+    const apiKey = ""; // API Key Placeholder
 
+    // --- State Management ---
     let state = {
         plans: [],
-        seatLayouts: [],
-        periodSettings: [
-            { id: 1, label: '1時間目', start: '08:50', end: '09:40' },
-            { id: 2, label: '2時間目', start: '09:50', end: '10:40' },
-            { id: 3, label: '3時間目', start: '10:50', end: '11:40' },
-            { id: 4, label: '4時間目', start: '11:50', end: '12:40' },
-            { id: 5, label: '5時間目', start: '13:30', end: '14:20' }
-        ],
-        actions: {
-            positive: ['発言した', '他者に教えた', '良い着眼点', '集中している', 'ノートが丁寧'],
-            negative: ['騒がしい', '授業中断', '居眠り', '忘れ物', '離席']
+        seatings: [],
+        evalItems: {
+            good: ["進んで発言", "教え合い", "ノートが丁寧", "思考を深める", "ICT活用"],
+            bad: ["私語", "居眠り", "忘れ物", "他事", "離席"]
         },
-        evaluations: [],
-        tempKeywords: [],
-        selectedKeywords: []
+        periods: [
+            { id: 1, name: "1時間目", start: "08:50", end: "09:40" },
+            { id: 2, name: "2時間目", start: "09:50", end: "10:40" },
+            { id: 3, name: "3時間目", start: "10:50", end: "11:40" },
+            { id: 4, name: "4時間目", start: "11:50", end: "12:40" }
+        ],
+        activeLesson: null,
+        logs: []
     };
 
-    // --- UTILS & STORAGE ---
-    function saveToStorage() {
-        localStorage.setItem(`app_${appId}_state`, JSON.stringify(state));
-    }
-
-    function loadFromStorage() {
-        const saved = localStorage.getItem(`app_${appId}_state`);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            state = { ...state, ...parsed };
-        }
-        initUI();
-    }
-
-    // --- UI INITIALIZATION ---
-    function initUI() {
+    // --- Core Lifecycle ---
+    window.onload = () => {
+        const saved = localStorage.getItem('ai_board_v4');
+        if (saved) state = JSON.parse(saved);
+        
         updateTime();
         setInterval(updateTime, 1000);
-        
-        // Populate Selects
-        const mSelect = document.getElementById('plan-month');
-        const dSelect = document.getElementById('plan-day');
-        for(let i=1; i<=12; i++) mSelect.add(new Option(i + '月', i));
-        for(let i=1; i<=31; i++) dSelect.add(new Option(i + '日', i));
-        const now = new Date();
-        mSelect.value = now.getMonth() + 1;
-        dSelect.value = now.getDate();
+        renderAll();
 
-        renderPeriodSettings();
-        renderLayoutOptions();
-        renderActionSettings();
-        renderHome();
-        renderPlansList();
-        renderLayoutsList();
-        updateSeatPreview();
+        // Drag events for Seating Config
+        window.addEventListener('mousemove', handleGlobalDrag);
+        window.addEventListener('mouseup', stopGlobalDrag);
+    };
+
+    function saveToLocal() {
+        localStorage.setItem('ai_board_v4', JSON.stringify(state));
     }
 
     function updateTime() {
         const now = new Date();
-        document.getElementById('currentTime').innerText = now.toLocaleString('ja-JP', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        document.getElementById('digital-clock').innerText = now.toLocaleTimeString('ja-JP');
+    }
+
+    function switchTab(id) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const target = document.getElementById('content-' + id);
+        if(target) target.classList.add('active');
         
-        // Auto-switch today's plans on day change
-        if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
-            renderHome();
-        }
+        const navs = document.querySelectorAll('.nav-item');
+        navs.forEach(n => n.classList.remove('active'));
+        const tabNames = ['home', 'plan', 'library', 'start', 'seating'];
+        const idx = tabNames.indexOf(id);
+        if(idx >= 0) navs[idx].classList.add('active');
+
+        if(id === 'seating') initSeatPreview();
+        renderAll();
     }
 
-    function navigate(sectionId) {
-        document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
-        document.getElementById('section-' + sectionId).classList.remove('hidden');
-        
-        document.querySelectorAll('.tab-item').forEach((item, idx) => {
-            const sections = ['home', 'plan', 'history', 'seats', 'settings'];
-            item.classList.toggle('active', sections[idx] === sectionId);
-        });
+    // --- AI Logic ---
+    async function generateAIPoints() {
+        const raw = document.getElementById('plan-raw-criteria').value;
+        if(!raw) return alert("まずは基準を貼り付けてください");
 
-        if (sectionId === 'home') renderHome();
-        if (sectionId === 'history') renderPlansList();
-        window.scrollTo(0,0);
-    }
+        const loading = document.getElementById('ai-loading');
+        const result = document.getElementById('ai-result-area');
+        loading.classList.remove('hidden');
+        result.classList.add('hidden');
 
-    // --- AI STABILITY FEATURE ---
-    function refreshAIConnection() {
-        // In this environment, the key is provided at runtime.
-        // We reset some internal flags if needed.
-        const debug = document.getElementById('ai-debug-info');
-        debug.classList.remove('hidden');
-        debug.innerText = `リフレッシュ完了: ${new Date().toLocaleTimeString()} - 接続準備OK`;
-        setTimeout(() => debug.classList.add('hidden'), 3000);
-    }
-
-    async function callGemini(prompt) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        
-        // Exponential Backoff Implementation
-        const maxRetries = 5;
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
-                const data = await response.json();
-                if (data.candidates) return data.candidates[0].content.parts[0].text;
-                throw new Error("Invalid response");
-            } catch (err) {
-                if (i === maxRetries - 1) throw err;
-                await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
-            }
-        }
-    }
-
-    async function generateObservationPoints() {
-        const criteria = document.getElementById('raw-criteria').value;
-        if (!criteria) return alert("基準を入力してください");
-
-        const btn = document.getElementById('btn-generate');
-        const originalText = btn.innerHTML;
-        btn.innerText = "AIが分析中...";
-        btn.disabled = true;
+        const systemPrompt = `
+            あなたは教員のアシスタントです。授業計画から、机間指導中に観察すべき行動ポイントを3つ提案してください。
+            フォーマットはJSON形式: {"points": ["〜している", "〜している", "〜している"]}
+            制約: 1つ15文字以内、具体的表現。
+        `;
+        const userPrompt = `計画データ: ${raw}`;
 
         try {
-            const prompt = `以下の評価基準から、授業中に観察すべき行動目安を3つ抽出してください。
-基準：${criteria}
-制約：
-・「・〜している」の形式で出力。
-・1つ20文字以内。
-・余計な解説、導入文、結びは一切禁止。箇条書きのみ。`;
-
-            const result = await callGemini(prompt);
-            const points = result.split('\n').filter(l => l.trim().startsWith('・')).slice(0, 3);
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: { responseMimeType: "application/json" }
+                })
+            });
+            const data = await resp.json();
+            const aiData = JSON.parse(data.candidates[0].content.parts[0].text);
             
-            const kwPrompt = `以下の文章から、教育的なキーワードを5つ程度抽出してください。カンマ区切りでキーワードのみ出力してください。
-文章：${criteria}`;
-            const kwResult = await callGemini(kwPrompt);
-            state.tempKeywords = kwResult.split(',').map(s => s.trim());
-            state.selectedKeywords = [];
-
-            displayObservationPoints(points);
-            renderKeywords();
-        } catch (e) {
-            alert("AIの呼び出しに失敗しました。接続リフレッシュを試してください。");
+            const container = document.getElementById('ai-points-container');
+            container.innerHTML = aiData.points.map(p => `
+                <div class="bg-white border-l-4 border-emerald-500 p-3 rounded-r-xl shadow-sm text-sm font-bold">${p}</div>
+            `).join('');
+            result.classList.remove('hidden');
+        } catch(e) {
+            alert("生成に失敗しました。時間をおいてお試しください。");
         } finally {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
+            loading.classList.add('hidden');
         }
     }
 
-    function displayObservationPoints(points) {
-        const area = document.getElementById('ai-output-area');
-        const list = document.getElementById('observation-list');
-        area.classList.remove('hidden');
-        list.innerHTML = points.map(p => `<li class="flex items-center gap-2"><span class="w-2 h-2 bg-green-400 rounded-full"></span>${p.replace('・','')}</li>`).join('');
-    }
+    // --- Seating Logic (Drag & Automatic Scaling) ---
+    let activeDragSeat = null;
+    let dragOffset = { x: 0, y: 0 };
 
-    function renderKeywords() {
-        const container = document.getElementById('extracted-keywords');
-        container.innerHTML = state.tempKeywords.map(kw => `
-            <span class="keyword-chip ${state.selectedKeywords.includes(kw) ? 'selected' : ''}" onclick="toggleKeyword('${kw}')">${kw}</span>
-        `).join('');
-    }
-
-    function toggleKeyword(kw) {
-        if (state.selectedKeywords.includes(kw)) {
-            state.selectedKeywords = state.selectedKeywords.filter(k => k !== kw);
-        } else {
-            state.selectedKeywords.push(kw);
-        }
-        renderKeywords();
-    }
-
-    async function regenerateObservationPoints() {
-        const criteria = document.getElementById('raw-criteria').value;
-        const manual = document.getElementById('manual-keyword').value;
-        const keywords = [...state.selectedKeywords];
-        if (manual) keywords.push(manual);
-
-        const prompt = `以下の評価基準と重点キーワードをもとに、授業中に観察すべき行動目安を3つ抽出してください。
-基準：${criteria}
-重点：${keywords.join(', ')}
-制約：
-・「・〜している」の形式で出力。
-・1つ20文字以内。
-・余計な解説は禁止。`;
-
-        const result = await callGemini(prompt);
-        const points = result.split('\n').filter(l => l.trim().startsWith('・')).slice(0, 3);
-        displayObservationPoints(points);
-    }
-
-    // --- SEAT LAYOUT LOGIC ---
-    function updateSeatPreview() {
-        const cols = parseInt(document.getElementById('seat-cols').value) || 1;
-        const rows = parseInt(document.getElementById('seat-rows').value) || 1;
-        const namesText = document.getElementById('seat-student-names').value;
-        const names = namesText.split('\n').map(n => n.trim()).filter(n => n);
-        
-        document.getElementById('seat-total-calc').innerText = `最大収容: ${cols * rows}名 (現在 ${names.length}名入力済)`;
-        
+    function initSeatPreview() {
         const container = document.getElementById('seat-preview-container');
+        const cols = parseInt(document.getElementById('seat-config-cols').value) || 6;
+        const rows = parseInt(document.getElementById('seat-config-rows').value) || 5;
+        const names = document.getElementById('seat-config-names').value.split('\n').filter(n => n.trim());
+        
         container.innerHTML = '';
-        const grid = document.createElement('div');
-        grid.style.display = 'grid';
-        grid.style.gridTemplateColumns = `repeat(${cols}, 100px)`;
-        grid.style.gap = '15px';
+        
+        // 1画面に収めるための計算
+        const contW = container.clientWidth;
+        const contH = container.clientHeight;
+        
+        // 余白を考慮した配置
+        const padding = 20;
+        const cellW = (contW - padding * 2) / cols;
+        const cellH = (contH - padding * 2) / rows;
+        
+        // 座席自体のサイズもセルに合わせて調整
+        const seatW = Math.min(cellW * 0.8, 100);
+        const seatH = Math.min(cellH * 0.7, 60);
 
-        for (let i = 0; i < rows * cols; i++) {
-            const name = names[i] || "";
+        const total = Math.max(names.length, cols * rows);
+
+        for(let i=0; i<total; i++) {
+            const r = Math.floor(i / cols);
+            const c = i % cols;
             const seat = document.createElement('div');
-            seat.className = `seat ${!name ? 'empty' : ''}`;
-            seat.draggable = !!name;
-            seat.innerHTML = `<span>${name || (i+1)}</span>`;
+            seat.className = 'seat';
+            seat.style.width = seatW + 'px';
+            seat.style.height = seatH + 'px';
             
-            seat.ondragstart = (e) => e.dataTransfer.setData('text/plain', i);
-            seat.ondragover = (e) => e.preventDefault();
-            seat.ondrop = (e) => {
-                const fromIdx = e.dataTransfer.getData('text/plain');
-                swapStudentNames(fromIdx, i);
-            };
+            // 初配置 (中央寄せ)
+            const posX = padding + (c * cellW) + (cellW - seatW) / 2;
+            const posY = padding + (r * cellH) + (cellH - seatH) / 2;
             
-            grid.appendChild(seat);
+            seat.style.left = posX + 'px';
+            seat.style.top = posY + 'px';
+            seat.innerText = names[i] || (i + 1);
+            
+            seat.onmousedown = (e) => startSeatDrag(e, seat);
+            container.appendChild(seat);
         }
-        container.appendChild(grid);
     }
 
-    function swapStudentNames(idx1, idx2) {
-        const textarea = document.getElementById('seat-student-names');
-        const names = textarea.value.split('\n');
-        // Ensure array is long enough
-        const max = Math.max(idx1, idx2);
-        while(names.length <= max) names.push("");
-        
-        const temp = names[idx1];
-        names[idx1] = names[idx2];
-        names[idx2] = temp;
-        textarea.value = names.join('\n');
-        updateSeatPreview();
+    function startSeatDrag(e, el) {
+        activeDragSeat = el;
+        const rect = el.getBoundingClientRect();
+        dragOffset.x = e.clientX - rect.left;
+        dragOffset.y = e.clientY - rect.top;
     }
 
-    function saveSeatLayout() {
-        const name = document.getElementById('seat-layout-name').value;
-        if (!name) return alert("座席表名を入力してください");
-
-        const layout = {
-            id: 'layout_' + Date.now(),
-            name: name,
-            cols: parseInt(document.getElementById('seat-cols').value),
-            rows: parseInt(document.getElementById('seat-rows').value),
-            studentCount: parseInt(document.getElementById('seat-total-count').value),
-            names: document.getElementById('seat-student-names').value.split('\n')
-        };
-
-        const existingIdx = state.seatLayouts.findIndex(l => l.name === name);
-        if(existingIdx >= 0) {
-            state.seatLayouts[existingIdx] = layout;
-        } else {
-            state.seatLayouts.push(layout);
-        }
+    function handleGlobalDrag(e) {
+        if(!activeDragSeat) return;
+        const container = document.getElementById('seat-preview-container');
+        const contRect = container.getBoundingClientRect();
         
-        saveToStorage();
-        renderLayoutOptions();
-        renderLayoutsList();
+        let x = e.clientX - contRect.left - dragOffset.x;
+        let y = e.clientY - contRect.top - dragOffset.y;
+        
+        // 境界チェック (枠内に収める)
+        const maxW = container.clientWidth - activeDragSeat.clientWidth;
+        const maxH = container.clientHeight - activeDragSeat.clientHeight;
+        
+        x = Math.max(0, Math.min(x, maxW));
+        y = Math.max(0, Math.min(y, maxH));
+        
+        activeDragSeat.style.left = x + 'px';
+        activeDragSeat.style.top = y + 'px';
+    }
+
+    function stopGlobalDrag() {
+        activeDragSeat = null;
+    }
+
+    function saveSeatingData() {
+        const name = document.getElementById('seat-config-name').value;
+        if(!name) return alert("クラス名を入力してください");
+
+        const seatElements = document.querySelectorAll('#seat-preview-container .seat');
+        const seats = Array.from(seatElements).map(s => ({
+            name: s.innerText,
+            top: s.style.top,
+            left: s.style.left,
+            w: s.style.width,
+            h: s.style.height
+        }));
+
+        state.seatings.push({ id: Date.now().toString(), name, seats });
+        saveToLocal();
+        renderAll();
         alert("座席表を保存しました");
     }
 
-    function resetSeatForm() {
-        document.getElementById('seat-layout-name').value = "";
-        document.getElementById('seat-student-names').value = "";
-        updateSeatPreview();
-    }
+    // --- CSV Download Logic ---
+    function downloadCSV(planId) {
+        const plan = state.plans.find(p => p.id === planId);
+        if(!plan) return;
 
-    function renderLayoutsList() {
-        const container = document.getElementById('saved-layouts-list');
-        container.innerHTML = state.seatLayouts.map(l => `
-            <div class="flex justify-between items-center bg-white border p-3 rounded-xl shadow-sm">
-                <span class="text-sm font-bold text-green-800">${l.name}</span>
-                <div class="flex gap-2">
-                    <button class="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded" onclick="editLayout('${l.id}')">編集</button>
-                    <button class="text-[10px] bg-red-50 text-red-600 px-2 py-1 rounded" onclick="deleteLayout('${l.id}')">削除</button>
-                </div>
-            </div>
-        `).join('');
-    }
+        const lessonLogs = state.logs.filter(l => l.lessonId === planId);
+        const seating = state.seatings.find(s => s.id === plan.seatingId);
 
-    function editLayout(id) {
-        const l = state.seatLayouts.find(x => x.id === id);
-        if(!l) return;
-        document.getElementById('seat-layout-name').value = l.name;
-        document.getElementById('seat-cols').value = l.cols;
-        document.getElementById('seat-rows').value = l.rows;
-        document.getElementById('seat-total-count').value = l.studentCount;
-        document.getElementById('seat-student-names').value = l.names.join('\n');
-        updateSeatPreview();
-        window.scrollTo(0,0);
-    }
+        let csvContent = "\ufeff"; // BOM for Japanese in Excel
+        csvContent += "授業名,実施日,時限,評価ポイント\n";
+        csvContent += `"${plan.className}","${plan.date}","${plan.period}","${plan.points.join('|')}"\n\n`;
+        csvContent += "時間,生徒名,項目,評価タイプ\n";
 
-    function deleteLayout(id) {
-        if(!confirm("削除しますか？")) return;
-        state.seatLayouts = state.seatLayouts.filter(l => l.id !== id);
-        saveToStorage();
-        renderLayoutsList();
-        renderLayoutOptions();
-    }
-
-    // --- PLAN MANAGEMENT ---
-    function savePlan() {
-        const criteria = document.getElementById('raw-criteria').value;
-        const observationHtml = document.getElementById('observation-list').innerHTML;
-        const month = document.getElementById('plan-month').value;
-        const day = document.getElementById('plan-day').value;
-        const periodId = document.getElementById('plan-period').value;
-        const layoutId = document.getElementById('plan-layout').value;
-
-        if (!criteria || !layoutId) return alert("評価基準とクラス（座席表）を設定してください");
-
-        const plan = {
-            id: Date.now(),
-            criteria,
-            observationHtml,
-            month: parseInt(month),
-            day: parseInt(day),
-            periodId: parseInt(periodId),
-            layoutId: layoutId
-        };
-
-        state.plans.push(plan);
-        saveToStorage();
-        alert("授業計画を保存しました。ホーム画面から開始できます。");
-        navigate('home');
-    }
-
-    function deletePlan(id) {
-        if(!confirm("この計画を削除しますか？（記録は残ります）")) return;
-        state.plans = state.plans.filter(p => p.id !== id);
-        saveToStorage();
-        renderPlansList();
-        renderHome();
-    }
-
-    // --- DASHBOARD RENDER ---
-    function renderHome() {
-        const todayContainer = document.getElementById('today-plans');
-        const futureContainer = document.getElementById('future-plans');
-        const now = new Date();
-        const tMonth = now.getMonth() + 1;
-        const tDay = now.getDate();
-
-        const todayPlans = state.plans.filter(p => p.month === tMonth && p.day === tDay);
-        const futurePlans = state.plans.filter(p => (p.month > tMonth) || (p.month === tMonth && p.day > tDay))
-                                     .sort((a,b) => (a.month*100+a.day) - (b.month*100+b.day));
-
-        const renderItem = (p) => {
-            const period = state.periodSettings.find(s => s.id === p.periodId);
-            const layout = state.seatLayouts.find(l => l.id === p.layoutId);
-            return `
-                <div class="card bg-white hover:border-green-300 border-2 border-transparent transition-all cursor-pointer" onclick="startEvaluation(${p.id})">
-                    <div class="flex justify-between items-center">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-2">
-                                <span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded-full font-bold">${period?.label || '時限設定なし'}</span>
-                                <span class="text-xs text-gray-400 font-bold">${p.month}月${p.day}日</span>
-                            </div>
-                            <h3 class="text-xl font-bold text-gray-800">${layout?.name || 'クラス不明'}</h3>
-                            <p class="text-sm text-gray-500 line-clamp-1 mt-1">${p.criteria}</p>
-                        </div>
-                        <div class="bg-green-50 p-3 rounded-full text-green-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
-
-        todayContainer.innerHTML = todayPlans.length ? todayPlans.map(renderItem).join('') : '<div class="text-center p-8 bg-white/50 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400 font-bold">本日の授業は登録されていません</div>';
-        futureContainer.innerHTML = futurePlans.length ? futurePlans.map(renderItem).join('') : '<p class="text-gray-400 text-sm">予定はありません</p>';
-    }
-
-    function renderPlansList() {
-        const container = document.getElementById('plans-list-container');
-        const tabContainer = document.getElementById('class-tabs');
-        
-        const classNames = [...new Set(state.seatLayouts.map(l => l.name))];
-        tabContainer.innerHTML = `<button class="btn btn-outline text-xs" onclick="filterPlansByClass('all')">すべて表示</button>` + 
-            classNames.map(cn => `<button class="btn btn-outline text-xs" onclick="filterPlansByClass('${cn}')">${cn}</button>`).join('');
-
-        filterPlansByClass('all');
-    }
-
-    function filterPlansByClass(className) {
-        const container = document.getElementById('plans-list-container');
-        let filtered = state.plans;
-        if(className !== 'all') {
-            const layoutIds = state.seatLayouts.filter(l => l.name === className).map(l => l.id);
-            filtered = state.plans.filter(p => layoutIds.includes(p.layoutId));
-        }
-
-        container.innerHTML = filtered.sort((a,b) => (b.month*100+b.day) - (a.month*100+a.day)).map(p => {
-            const period = state.periodSettings.find(s => s.id === p.periodId);
-            const layout = state.seatLayouts.find(l => l.id === p.layoutId);
-            return `
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="text-[10px] font-black text-green-300 uppercase">${p.month}/${p.day}</span>
-                            <span class="text-[10px] font-bold text-gray-400">${period?.label}</span>
-                        </div>
-                        <p class="font-bold text-lg">${layout?.name || '削除済クラス'}</p>
-                        <p class="text-xs text-gray-500">${p.criteria.substring(0,30)}...</p>
-                    </div>
-                    <button class="text-red-300 hover:text-red-500 p-2" onclick="deletePlan(${p.id})">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // --- EVALUATION MODE ---
-    let currentPlan = null;
-    function startEvaluation(planId) {
-        currentPlan = state.plans.find(p => p.id === planId);
-        if(!currentPlan) return;
-
-        const layout = state.seatLayouts.find(l => l.id === currentPlan.layoutId);
-        if(!layout) return alert("座席表データが削除されています");
-
-        document.getElementById('eval-header').innerText = layout.name;
-        document.getElementById('eval-sub-header').innerText = `${currentPlan.month}月${currentPlan.day}日・${state.periodSettings.find(s=>s.id==currentPlan.periodId)?.label}`;
-        
-        // 箇条書きを横並びのチップに変換して表示
-        const points = currentPlan.observationHtml.match(/<li>(.*?)<\/li>/g)?.map(m => m.replace(/<\/?li>/g, '')) || [];
-        document.getElementById('eval-points-display').innerHTML = points.map(p => `
-            <div class="flex items-center justify-center gap-2 px-6 py-2 bg-white rounded-full border-2 border-green-100 shadow-sm">
-                <span class="text-green-400">●</span> ${p}
-            </div>
-        `).join('');
-        
-        renderEvaluationGrid(layout);
-        navigate('evaluate');
-    }
-
-    function renderEvaluationGrid(layout) {
-        const container = document.getElementById('eval-seat-grid');
-        container.innerHTML = '';
-        const grid = document.createElement('div');
-        grid.style.display = 'grid';
-        grid.style.gridTemplateColumns = `repeat(${layout.cols}, 105px)`;
-        grid.style.gap = '20px';
-
-        for (let i = 0; i < layout.rows * layout.cols; i++) {
-            const name = layout.names[i];
-            const seat = document.createElement('div');
-            seat.className = `seat ${!name ? 'empty' : ''} shadow-md`;
-            if(name) {
-                const pCount = state.evaluations.filter(e => e.planId === currentPlan.id && e.studentName === name && e.type === 'positive').length;
-                const nCount = state.evaluations.filter(e => e.planId === currentPlan.id && e.studentName === name && e.type === 'negative').length;
-                
-                seat.innerHTML = `
-                    <span class="font-bold text-lg">${name}</span>
-                    <div class="flex gap-1 mt-1">
-                        ${pCount > 0 ? `<span class="bg-green-400 text-white text-[9px] px-1 rounded-full">+${pCount}</span>` : ''}
-                        ${nCount > 0 ? `<span class="bg-red-400 text-white text-[9px] px-1 rounded-full">-${nCount}</span>` : ''}
-                    </div>
-                `;
-                seat.onclick = () => openActionModal(name);
-            } else {
-                seat.innerHTML = `<span class="text-gray-200">席</span>`;
-            }
-            grid.appendChild(seat);
-        }
-        container.appendChild(grid);
-    }
-
-    function openActionModal(studentName) {
-        document.getElementById('modal-student-name').innerText = studentName;
-        const posContainer = document.getElementById('modal-pos-actions');
-        const negContainer = document.getElementById('modal-neg-actions');
-
-        posContainer.innerHTML = state.actions.positive.map(act => `
-            <button class="text-sm p-4 bg-green-50 text-green-700 rounded-2xl border-2 border-green-100 hover:bg-green-100 font-bold text-left flex justify-between items-center" onclick="recordEvaluation('${studentName}', '${act}', 'positive')">
-                ${act} <span class="text-green-300">＋</span>
-            </button>
-        `).join('');
-
-        negContainer.innerHTML = state.actions.negative.map(act => `
-            <button class="text-sm p-4 bg-red-50 text-red-700 rounded-2xl border-2 border-red-100 hover:bg-red-100 font-bold text-left flex justify-between items-center" onclick="recordEvaluation('${studentName}', '${act}', 'negative')">
-                ${act} <span class="text-red-300">−</span>
-            </button>
-        `).join('');
-
-        document.getElementById('action-modal').style.display = 'flex';
-    }
-
-    function recordEvaluation(studentName, action, type) {
-        state.evaluations.push({
-            planId: currentPlan.id,
-            studentName,
-            action,
-            type,
-            timestamp: new Date().toISOString()
-        });
-        saveToStorage();
-        closeModal();
-        renderEvaluationGrid(state.seatLayouts.find(l => l.id === currentPlan.layoutId));
-    }
-
-    function closeModal() {
-        document.getElementById('action-modal').style.display = 'none';
-    }
-
-    // --- EXPORT LOGIC (CSV with Pseudo-Tabs) ---
-    function exportEvaluationHistory() {
-        if(state.evaluations.length === 0) return alert("記録データがありません");
-
-        // クラス別にデータを分ける (CSV自体にはタブ機能はないため、ソートとセパレータで対応)
-        const sortedEvaluations = [...state.evaluations].sort((a,b) => {
-            const planA = state.plans.find(p => p.id === a.planId);
-            const planB = state.plans.find(p => p.id === b.planId);
-            return (planA?.layoutId || "").localeCompare(planB?.layoutId || "");
+        lessonLogs.forEach(l => {
+            const studentName = seating ? (seating.seats[l.studentIdx]?.name || "不明") : "不明";
+            csvContent += `"${l.time}","${studentName}","${l.action}","${l.type}"\n`;
         });
 
-        let csv = "\uFEFF【パステル・ティーチャー・ログ 評価記録】\n";
-        csv += "日時,学年クラス,生徒名,行動内容,評価種別,元の評価基準\n";
-        
-        let lastLayoutId = "";
-        sortedEvaluations.forEach(e => {
-            const plan = state.plans.find(p => p.id === e.planId);
-            const layout = state.seatLayouts.find(l => l.id === plan?.layoutId);
-            
-            // クラスが変わる際に空行を入れる（タブ分けの代わり）
-            if (lastLayoutId && lastLayoutId !== plan?.layoutId) csv += "\n";
-            lastLayoutId = plan?.layoutId;
-
-            const date = new Date(e.timestamp).toLocaleString('ja-JP');
-            csv += `${date},${layout?.name || '不明'},${e.studentName},${e.action},${e.type === 'positive' ? '良' : '要指導'},"${plan?.criteria.replace(/"/g, '""')}"\n`;
-        });
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", `TeacherLog_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `AI-Board_${plan.className}_${plan.date}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
-    // --- SETTINGS RENDERERS ---
-    function renderPeriodSettings() {
-        const container = document.getElementById('period-settings-list');
-        const select = document.getElementById('plan-period');
-        container.innerHTML = state.periodSettings.map((s, idx) => `
-            <div class="flex gap-2 items-center bg-gray-50 p-3 rounded-xl">
-                <input type="text" value="${s.label}" class="p-2 border rounded-lg text-sm w-32" onchange="updatePeriod(${idx}, 'label', this.value)">
-                <div class="flex items-center gap-1">
-                    <input type="time" value="${s.start}" class="p-2 border rounded-lg text-xs" onchange="updatePeriod(${idx}, 'start', this.value)">
-                    <span class="text-gray-400">〜</span>
-                    <input type="time" value="${s.end}" class="p-2 border rounded-lg text-xs" onchange="updatePeriod(${idx}, 'end', this.value)">
-                </div>
-                <button class="text-red-300 hover:text-red-500 ml-auto" onclick="deletePeriod(${idx})">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `).join('');
+    // --- Plan & UI Helpers ---
+    function savePlan() {
+        const plan = {
+            id: Date.now().toString(),
+            date: document.getElementById('plan-date').value,
+            period: document.getElementById('plan-period').value,
+            className: document.getElementById('plan-class').value,
+            seatingId: document.getElementById('plan-seating').value,
+            points: Array.from(document.getElementById('ai-points-container').children).map(c => c.innerText)
+        };
+        if(!plan.date || !plan.className || !plan.seatingId) return alert("必須項目（日付、クラス、座席表）を選択してください");
         
-        select.innerHTML = state.periodSettings.map(s => `<option value="${s.id}">${s.label} (${s.start}〜)</option>`).join('');
+        state.plans.push(plan);
+        saveToLocal();
+        switchTab('home');
     }
 
-    function updatePeriod(idx, key, val) {
-        state.periodSettings[idx][key] = val;
-        saveToStorage();
-        renderPeriodSettings();
+    function startLesson(id) {
+        const plan = state.plans.find(p => p.id === id);
+        const seating = state.seatings.find(s => s.id === plan.seatingId);
+        if(!seating) return alert("座席表データが見つかりません。");
+
+        state.activeLesson = plan;
+        document.getElementById('live-title').innerText = `${plan.className} の授業`;
+        document.getElementById('live-meta').innerText = `${plan.date} / ${state.periods.find(p=>p.id==plan.period)?.name || ''}`;
+        document.getElementById('live-points').innerHTML = plan.points.map(p => `<span class="bg-emerald-700 px-2 py-1 rounded text-[10px] font-bold shadow-sm">${p}</span>`).join('');
+
+        const area = document.getElementById('live-seat-area');
+        area.innerHTML = '';
+
+        // 授業画面も1画面に収める
+        const contW = area.clientWidth;
+        const contH = area.clientHeight;
+        
+        seating.seats.forEach((s, i) => {
+            const el = document.createElement('div');
+            el.className = 'seat hover:bg-emerald-50 transition cursor-pointer border-gray-300';
+            el.style.top = s.top;
+            el.style.left = s.left;
+            el.style.width = s.w;
+            el.style.height = s.h;
+            
+            const score = getScore(plan.id, i);
+            el.innerHTML = `
+                <span class="font-bold">${s.name}</span>
+                <span id="score-label-${i}" class="text-[10px] font-black ${score >= 0 ? 'text-emerald-500' : 'text-red-500'}">
+                    ${score > 0 ? '+'+score : score}
+                </span>
+            `;
+            el.onclick = () => openEvalModal(i, s.name);
+            area.appendChild(el);
+        });
+
+        document.getElementById('active-lesson-overlay').classList.remove('hidden');
+        renderLogs();
+    }
+
+    function getScore(lessonId, studentIdx) {
+        return state.logs
+            .filter(l => l.lessonId === lessonId && l.studentIdx === studentIdx)
+            .reduce((acc, curr) => acc + (curr.type === 'good' ? 1 : -1), 0);
+    }
+
+    function openEvalModal(idx, name) {
+        currentStudentId = idx;
+        document.getElementById('modal-student-name').innerText = name;
+        
+        const gArea = document.getElementById('modal-good-btns');
+        const bArea = document.getElementById('modal-bad-btns');
+        
+        gArea.innerHTML = state.evalItems.good.map(item => `
+            <button onclick="logEval('${item}', 'good')" class="bg-emerald-50 text-emerald-700 py-3 rounded-xl text-xs font-bold hover:bg-emerald-100 transition shadow-sm">${item}</button>
+        `).join('');
+        
+        bArea.innerHTML = state.evalItems.bad.map(item => `
+            <button onclick="logEval('${item}', 'bad')" class="bg-red-50 text-red-700 py-3 rounded-xl text-xs font-bold hover:bg-red-100 transition shadow-sm">${item}</button>
+        `).join('');
+
+        document.getElementById('eval-modal').classList.remove('hidden');
+    }
+
+    function logEval(action, type) {
+        const log = {
+            lessonId: state.activeLesson.id,
+            studentIdx: currentStudentId,
+            action,
+            type,
+            time: new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' })
+        };
+        state.logs.push(log);
+        saveToLocal();
+        
+        const score = getScore(state.activeLesson.id, currentStudentId);
+        const lbl = document.getElementById(`score-label-${currentStudentId}`);
+        if(lbl) {
+            lbl.innerText = score > 0 ? '+'+score : score;
+            lbl.className = `text-[10px] font-black ${score >= 0 ? 'text-emerald-500' : 'text-red-500'}`;
+        }
+        
+        renderLogs();
+        closeEvalModal();
+    }
+
+    function renderLogs() {
+        const area = document.getElementById('live-logs');
+        const lessonLogs = state.logs.filter(l => l.lessonId === state.activeLesson.id).reverse();
+        const seating = state.seatings.find(s => s.id === state.activeLesson.seatingId);
+
+        area.innerHTML = lessonLogs.map(l => `
+            <div class="p-3 bg-gray-50 rounded-lg text-xs border-l-4 ${l.type === 'good' ? 'border-emerald-400' : 'border-red-400'} shadow-sm">
+                <div class="flex justify-between text-gray-400 mb-1">
+                    <span>${l.time}</span>
+                    <span class="font-bold">${seating?.seats[l.studentIdx]?.name || "生徒"}</span>
+                </div>
+                <div class="font-bold">${l.action}</div>
+            </div>
+        `).join('');
+    }
+
+    function closeEvalModal() { document.getElementById('eval-modal').classList.add('hidden'); }
+    function finishLesson() { document.getElementById('active-lesson-overlay').classList.add('hidden'); }
+
+    // --- Render All ---
+    function renderAll() {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Home rendering
+        const todays = state.plans.filter(p => p.date === today);
+        document.getElementById('today-list').innerHTML = todays.length ? todays.map(p => `
+            <div onclick="startLesson('${p.id}')" class="card bg-emerald-50 border-emerald-200 cursor-pointer hover:shadow-md transition">
+                <p class="text-xs font-bold text-emerald-600 mb-1">${state.periods.find(x=>x.id==p.period)?.name || ''}</p>
+                <h3 class="text-xl font-black mb-2">${p.className}</h3>
+                <div class="flex flex-wrap gap-1">
+                    ${p.points.map(pt => `<span class="bg-white px-2 py-0.5 rounded text-[8px] border text-gray-500">${pt}</span>`).join('')}
+                </div>
+            </div>
+        `).join('') : '<p class="text-gray-400 text-sm">予定なし</p>';
+
+        const upcomings = state.plans.filter(p => p.date > today).sort((a,b) => a.date.localeCompare(b.date));
+        document.getElementById('upcoming-list').innerHTML = upcomings.map(p => `
+            <div class="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-100">
+                <span class="font-bold text-gray-400 text-sm">${p.date}</span>
+                <span class="font-bold text-emerald-600">${p.className}</span>
+            </div>
+        `).join('');
+
+        // Library rendering
+        document.getElementById('library-list').innerHTML = state.plans.map(p => `
+            <div class="card bg-white hover:border-emerald-300 transition group">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-xs text-gray-400 font-bold mb-1">${p.date} / ${state.periods.find(x=>x.id==p.period)?.name || ''}</p>
+                        <h4 class="text-lg font-black text-emerald-800">${p.className}</h4>
+                    </div>
+                    <button onclick="deletePlan('${p.id}')" class="text-gray-300 hover:text-red-500">✕</button>
+                </div>
+                <div class="space-y-1 mb-6 border-l-2 border-emerald-100 pl-3">
+                    ${p.points.map(pt => `<p class="text-[10px] text-gray-500 font-medium">${pt}</p>`).join('')}
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="startLesson('${p.id}')" class="py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition">授業開始</button>
+                    <button onclick="downloadCSV('${p.id}')" class="py-2 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-200 transition flex items-center justify-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        CSV出力
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        // Config items
+        renderDropdowns();
+        renderReadyLessons();
+        renderSavedSeatings();
+        renderSettings();
+    }
+
+    function deletePlan(id) {
+        if(!confirm("この計画を削除してもよろしいですか？（記録されたログも削除されます）")) return;
+        state.plans = state.plans.filter(p => p.id !== id);
+        state.logs = state.logs.filter(l => l.lessonId !== id);
+        saveToLocal();
+        renderAll();
+    }
+
+    function renderDropdowns() {
+        const pSel = document.getElementById('plan-period');
+        pSel.innerHTML = state.periods.map(p => `<option value="${p.id}">${p.name} (${p.start})</option>`).join('');
+        const sSel = document.getElementById('plan-seating');
+        sSel.innerHTML = '<option value="">選択してください</option>' + state.seatings.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+
+    function renderReadyLessons() {
+        const area = document.getElementById('ready-lesson-list');
+        area.innerHTML = state.plans.map(p => `
+            <div class="flex justify-between items-center bg-white p-5 rounded-2xl border shadow-sm hover:border-emerald-300 transition">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center font-black text-emerald-700">${state.periods.find(x=>x.id==p.period)?.id || '?'}</div>
+                    <div>
+                        <h4 class="font-bold">${p.className}</h4>
+                        <p class="text-xs text-gray-400">${p.date}</p>
+                    </div>
+                </div>
+                <button onclick="startLesson('${p.id}')" class="bg-emerald-600 text-white px-8 py-2 rounded-full font-bold shadow-md hover:bg-emerald-700 transition">開始</button>
+            </div>
+        `).join('');
+    }
+
+    function renderSavedSeatings() {
+        const area = document.getElementById('saved-seatings');
+        area.innerHTML = state.seatings.map(s => `
+            <div class="flex justify-between items-center p-3 bg-white rounded-xl border text-sm shadow-sm">
+                <span class="font-bold text-gray-700">${s.name}</span>
+                <div class="flex gap-2">
+                    <button onclick="loadSeatingConfig('${s.id}')" class="text-emerald-500 font-bold hover:underline">編集</button>
+                    <button onclick="deleteSeating('${s.id}')" class="text-red-300 hover:text-red-500">✕</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function loadSeatingConfig(id) {
+        const s = state.seatings.find(x => x.id === id);
+        document.getElementById('seat-config-name').value = s.name;
+        document.getElementById('seat-config-names').value = s.seats.map(x => x.name).join('\n');
+        initSeatPreview();
+    }
+
+    function deleteSeating(id) {
+        if(!confirm("座席表を削除しますか？")) return;
+        state.seatings = state.seatings.filter(s => s.id !== id);
+        saveToLocal();
+        renderAll();
+    }
+
+    function renderSettings() {
+        const pArea = document.getElementById('settings-periods');
+        pArea.innerHTML = state.periods.map((p, i) => `
+            <div class="flex gap-2 items-center">
+                <input type="text" value="${p.name}" onchange="state.periods[${i}].name=this.value;saveToLocal()" class="w-24 border p-2 rounded text-sm">
+                <input type="time" value="${p.start}" onchange="state.periods[${i}].start=this.value;saveToLocal()" class="border p-2 rounded text-sm">
+                <span class="text-gray-300">〜</span>
+                <input type="time" value="${p.end}" onchange="state.periods[${i}].end=this.value;saveToLocal()" class="border p-2 rounded text-sm">
+                <button onclick="state.periods.splice(${i},1);saveToLocal();renderSettings()" class="text-red-300">✕</button>
+            </div>
+        `).join('');
+
+        const gArea = document.getElementById('settings-good');
+        gArea.innerHTML = state.evalItems.good.map((item, i) => `
+            <div class="flex justify-between p-2 bg-emerald-50 rounded text-xs items-center">
+                <span class="font-bold text-emerald-800">${item}</span>
+                <button onclick="state.evalItems.good.splice(${i},1);saveToLocal();renderSettings()" class="text-gray-400 hover:text-red-500 font-bold px-2">✕</button>
+            </div>
+        `).join('');
+
+        const bArea = document.getElementById('settings-bad');
+        bArea.innerHTML = state.evalItems.bad.map((item, i) => `
+            <div class="flex justify-between p-2 bg-red-50 rounded text-xs items-center">
+                <span class="font-bold text-red-800">${item}</span>
+                <button onclick="state.evalItems.bad.splice(${i},1);saveToLocal();renderSettings()" class="text-gray-400 hover:text-red-500 font-bold px-2">✕</button>
+            </div>
+        `).join('');
     }
 
     function addPeriodSetting() {
-        const id = Date.now();
-        state.periodSettings.push({ id, label: `${state.periodSettings.length + 1}時間目`, start: '00:00', end: '00:00' });
-        saveToStorage();
-        renderPeriodSettings();
+        state.periods.push({ id: state.periods.length+1, name: (state.periods.length+1)+'時間目', start: "00:00", end: "00:00" });
+        saveToLocal();
+        renderSettings();
     }
 
-    function deletePeriod(idx) {
-        state.periodSettings.splice(idx, 1);
-        saveToStorage();
-        renderPeriodSettings();
+    function addEvalItem(type) {
+        const input = document.getElementById(`add-${type}-input`);
+        if(!input.value) return;
+        state.evalItems[type].push(input.value);
+        input.value = '';
+        saveToLocal();
+        renderSettings();
     }
-
-    function renderActionSettings() {
-        const pos = document.getElementById('positive-actions');
-        const neg = document.getElementById('negative-actions');
-        
-        const genHtml = (list, type) => list.map((act, idx) => `
-            <div class="flex gap-2">
-                <input value="${act}" class="flex-1 p-2 border rounded-lg text-sm" onchange="state.actions.${type}[${idx}]=this.value;saveToStorage()">
-                <button onclick="state.actions.${type}.splice(${idx},1);saveToStorage();renderActionSettings()" class="text-red-300 hover:text-red-500">×</button>
-            </div>
-        `).join('');
-
-        pos.innerHTML = genHtml(state.actions.positive, 'positive');
-        neg.innerHTML = genHtml(state.actions.negative, 'negative');
-    }
-
-    function addAction(type) {
-        state.actions[type].push("新しい項目");
-        saveToStorage();
-        renderActionSettings();
-    }
-
-    function renderLayoutOptions() {
-        const select = document.getElementById('plan-layout');
-        select.innerHTML = '<option value="">クラスを選択してください</option>' + 
-            state.seatLayouts.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-    }
-
-    // START APP
-    window.onload = loadFromStorage;
 
 </script>
-
-<style>
-    /* Animations */
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-    @keyframes pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    .animate-pop { animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-</style>
-
 </body>
 </html>
